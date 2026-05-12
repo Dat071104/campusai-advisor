@@ -1,0 +1,21 @@
+---
+description: Use Zone Brain for Python debugging, refactoring, dependency tracing, or affected-file discovery.
+globs: "**/*.py"
+alwaysApply: false
+---
+
+Use this rule when debugging or refactoring Python code, especially RAG, retrieval, embeddings, document ingestion, settings, citations, or Groq client logic.
+
+Read:
+
+@skills/zone-brain/SKILL.md
+
+Required workflow for non-trivial Python debugging:
+
+1. Pick a seed keyword.
+2. Run `python scripts/scan_deps.py --root . --seed "<seed>" --hops 2 --output context`.
+3. Read or attach `.zone_context.md`.
+4. Edit only the affected zone unless there is clear evidence another file matters.
+5. Verify with tests, lint, or a minimal runtime command.
+6. Record the seed, zone size, fix, and verification in `IMPLEMENTATION_LOG.md`.
+7. If the scan output suggests a wider impact, re-scope before editing beyond the zone.

@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+---
+
+Project Root: D:\Project cua Dat\Rag_School
+
+You MUST only read, inspect, modify, and reference files inside the Project Root above.
+
+Allowed project-control files:
+- .cursor/rules/*.mdc
+- AGENTS.md
+- PROJECT_RULES.md
+- PROJECT_CONTEXT.md
+- DEVELOPMENT_WORKFLOW.md
+- IMPLEMENTATION_LOG.md
+- MODEL_ROUTING_GUIDE.md
+- README_AGENT_SETUP.md
+- skills/**
+- scripts/**
+
+Forbidden:
+- Do not read or reference files outside the Project Root.
+- Do not use old transcript paths.
+- Do not use files from agent-transcripts unless the user explicitly attaches them.
+- Do not claim you read a file unless you confirm its absolute path.
+
+Before every implementation phase:
+1. Run or mentally verify the current workspace root.
+2. Confirm required root files exist.
+3. If files are missing, stop with PATH_BLOCKED instead of guessing.

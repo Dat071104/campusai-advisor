@@ -1,0 +1,27 @@
+---
+description: Core CampusAI project rules and workflow. Always apply this rule for the whole repository.
+globs:
+alwaysApply: true
+---
+
+Read these root files before making significant project changes:
+
+@AGENTS.md
+@PROJECT_RULES.md
+@PROJECT_CONTEXT.md
+@DEVELOPMENT_WORKFLOW.md
+@IMPLEMENTATION_LOG.md
+@MODEL_ROUTING_GUIDE.md
+
+Core requirements:
+
+- Keep the 3-day MVP scope unless the user explicitly requests V2.
+- Use Groq as the default chat LLM provider.
+- Use local embeddings for MVP unless changed by the user.
+- Do not hardcode or commit secrets.
+- Do not invent university policies or course rules.
+- If source evidence is missing, say so clearly.
+- Prefer small, verifiable implementation steps.
+- Update `IMPLEMENTATION_LOG.md` after implementation or debugging sessions.
+- Explain any new dependency before adding it.
+- If a task fails verification, re-audit the smallest likely cause before broadening the change.

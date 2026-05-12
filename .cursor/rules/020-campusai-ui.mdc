@@ -1,0 +1,23 @@
+---
+description: CampusAI UI rules for Streamlit, Next.js, chat UI, citation cards, document upload, dashboard, and landing page work.
+globs: "**/*.py,**/*.tsx,**/*.ts,**/*.jsx,**/*.js,**/*.css"
+alwaysApply: false
+---
+
+Use this rule when building or polishing user interface work.
+
+Read:
+
+@skills/campusai-ui/SKILL.md
+
+UI priorities:
+
+1. clarity,
+2. trust,
+3. readable academic product feel,
+4. visible citations,
+5. clear upload/index flow,
+6. simple responsive layout,
+7. demo-ready polish.
+
+Do not make the UI flashy at the cost of readability or source trust.
