@@ -1,13 +1,13 @@
 # CampusAI Advisor
 
-CampusAI Advisor is a web-first AI academic advising and RAG chatbot MVP for university students. The current foundation provides a runnable Streamlit shell, environment-based settings, PDF ingestion, text chunking, local FastEmbed embeddings, and ChromaDB persistence for later retrieval and Groq answer generation.
+CampusAI Advisor is a web-first AI academic advising and RAG chatbot MVP for university students. The current MVP provides a runnable Streamlit app, environment-based settings, PDF ingestion, text chunking, local FastEmbed embeddings, ChromaDB persistence, retrieval, citation formatting, and Groq-backed answer generation when a local `GROQ_API_KEY` is configured.
 
 ## Current Scope
 
 Implemented now:
 
 - Python package under `src/campusai`
-- Minimal Streamlit app placeholder
+- Streamlit question-answering UI with student profile sidebar
 - Environment settings loader with safe placeholders
 - Project dependency declaration in `pyproject.toml`
 - Basic smoke test for settings loading
@@ -18,12 +18,14 @@ Implemented now:
 - Local embeddings with FastEmbed
 - Persistent local vector storage with ChromaDB
 - CLI indexing command
+- Local vector retrieval over indexed chunks
+- Citation formatting with source authority labels
+- Groq OpenAI-compatible chat client with missing-key fallback and free-tier rate safeguards
+- RAG answer chain that answers in Vietnamese by default and refuses unsupported policy claims
 
 Not implemented yet:
 
-- Real Groq API calls
-- Chat/RAG answer generation
-- Retrieval UI and citation cards
+- Upload-to-index flow inside Streamlit
 - Authentication, databases, queues, or microservices
 
 ## Setup
@@ -42,7 +44,7 @@ Create a local `.env` only when you are ready to run later Groq-backed phases:
 copy .env.example .env
 ```
 
-Then paste real Groq keys into `.env` manually. Never commit `.env`.
+Then paste your real Groq key into `.env` manually. Never commit `.env`.
 
 ## Run The App
 
@@ -50,7 +52,17 @@ Then paste real Groq keys into `.env` manually. Never commit `.env`.
 streamlit run src/campusai/app.py
 ```
 
-The current app is a Phase 1 placeholder. It shows student-profile fields, document upload controls, chat input, and explicit "not yet implemented" states without calling Groq or processing documents.
+The app shows student-profile fields, dataset/index status, a question form, answer output, and citation cards. It does not call Groq on startup; it only attempts a live Groq call after you manually submit a question and relevant chunks are retrieved.
+
+Free-tier safety defaults:
+
+```text
+GROQ_TIMEOUT_SECONDS=30
+GROQ_MIN_SECONDS_BETWEEN_REQUESTS=3
+GROQ_MAX_RETRIES=2
+GROQ_MAX_TOKENS=900
+RAG_TOP_K=5
+```
 
 ## Index Local PDFs
 
@@ -81,10 +93,24 @@ CHUNK_SIZE=800
 CHUNK_OVERLAP=150
 ```
 
+## Manual RAG Test Questions
+
+After indexing documents and configuring `.env`, run the app and try:
+
+```text
+Trước khi học Machine Learning thì nên học gì?
+Berkeley CS lower division requirements gồm những gì?
+Local advisor rules có phải chính sách chính thức không?
+MIT FireRoad data nói gì về Computer Science requirements?
+```
+
+Expected behavior: answers are in Vietnamese by default, citations are visible, local heuristic rules are labeled as not official policy, and missing evidence is stated clearly.
+
 ## Verify
 
 ```bash
-pytest
+python -m pytest
+python -m compileall src tests
 python -c "from campusai.config import get_settings; print(get_settings().groq_model)"
 ```
 
@@ -123,4 +149,4 @@ The command writes a source manifest to `data/processed/source_manifest.json` an
 
 ## Next Phase
 
-Phase 2 audit should verify the ingestion/indexing pipeline. After that, the next implementation step is retrieval, citation formatting, and Groq-backed answer generation.
+Phase 3 audit should verify retrieval quality, citation correctness, Groq missing-key behavior, and Streamlit manual question flow before demo polish.

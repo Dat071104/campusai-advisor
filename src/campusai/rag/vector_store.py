@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from campusai.ingestion.chunker import TextChunk
+if TYPE_CHECKING:
+    from campusai.ingestion.chunker import TextChunk
 
 
 class VectorStore(Protocol):
-    def upsert_chunks(self, chunks: list[TextChunk], embeddings: list[list[float]]) -> int:
+    def upsert_chunks(self, chunks: list["TextChunk"], embeddings: list[list[float]]) -> int:
         """Persist chunks and return the number written."""
 
 
@@ -22,7 +23,13 @@ class ChromaVectorStore:
         self._client = chromadb.PersistentClient(path=persist_path)
         self._collection = self._client.get_or_create_collection(name=collection_name)
 
-    def upsert_chunks(self, chunks: list[TextChunk], embeddings: list[list[float]]) -> int:
+    @property
+    def collection(self):
+        """Expose the underlying Chroma collection for read-only query adapters."""
+
+        return self._collection
+
+    def upsert_chunks(self, chunks: list["TextChunk"], embeddings: list[list[float]]) -> int:
         if len(chunks) != len(embeddings):
             raise ValueError("chunks and embeddings must have the same length")
         if not chunks:

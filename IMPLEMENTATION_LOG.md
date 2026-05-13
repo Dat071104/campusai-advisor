@@ -95,6 +95,111 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-05-13 12:30 - Phase 3A / Remove unused backup Groq key placeholders
+
+### Context
+Phase 3 audit blocked on unused backup Groq key settings/placeholders. The Groq client only uses one primary key, and backup-key placeholders conflicted with the rate-limit safety intent.
+
+### Files touched
+- .env.example
+- README.md
+- src/campusai/config.py
+- tests/test_answer_chain.py
+- tests/test_retriever.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+python -m pytest
+python -m compileall src tests
+$env:PYTHON_DOTENV_DISABLED='1'; python -m pytest; Remove-Item Env:PYTHON_DOTENV_DISABLED
+```
+
+### Result
+Phase 3A fix completed. Backup Groq key settings/placeholders were removed while keeping the single primary `GROQ_API_KEY` flow intact.
+
+### Error messages
+None.
+
+### Root cause
+`Settings` and `.env.example` still exposed `GROQ_API_KEY_2` and `GROQ_API_KEY_3` even though the client did not use backup keys.
+
+### Fix applied
+Removed `GROQ_API_KEY_2` and `GROQ_API_KEY_3` from runtime settings, environment example placeholders, and test fixtures. Updated setup wording to mention a single Groq key.
+
+### Verification
+- `python -m pytest` passed: 17 tests.
+- `python -m compileall src tests` passed.
+- `$env:PYTHON_DOTENV_DISABLED='1'; python -m pytest; Remove-Item Env:PYTHON_DOTENV_DISABLED` passed: 17 tests.
+- Grep confirmed no `GROQ_API_KEY_2` or `GROQ_API_KEY_3` references remain in `src`, `tests`, `.env.example`, or `README.md`.
+
+### Next step
+Run Phase 3A audit.
+
+### Do not repeat
+Do not add fallback keys, key rotation, or multiple-key guidance to bypass Groq rate limits.
+
+---
+
+## 2026-05-13 12:00 - Phase 3 / Retrieval and RAG answer flow
+
+### Context
+Implemented the first usable CampusAI retrieval and RAG answer flow after root/path and secret preflight passed. The phase used existing ChromaDB and FastEmbed infrastructure, added Groq only behind manual question submission, and kept `.env` local/untracked.
+
+### Files touched
+- README.md
+- pyproject.toml
+- src/campusai/app.py
+- src/campusai/config.py
+- src/campusai/rag/vector_store.py
+- src/campusai/rag/retriever.py
+- src/campusai/rag/citations.py
+- src/campusai/rag/prompts.py
+- src/campusai/rag/answer_chain.py
+- src/campusai/services/groq_client.py
+- tests/test_retriever.py
+- tests/test_citations.py
+- tests/test_answer_chain.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+git rev-parse --show-toplevel
+git ls-files --error-unmatch .env
+python scripts/scan_deps.py --root . --seed "retriever,vector,search,groq,llm,client,chain,citation,config,streamlit,app" --hops 2 --output context
+python -m pytest
+python -m compileall src tests
+python -m campusai.index_documents
+python -c "import campusai.app; from campusai.config import get_settings; print('app import ok'); print(get_settings().has_groq_key)"
+```
+
+### Result
+Added retrieval, citation formatting, prompt construction, Groq chat client with conservative free-tier safeguards, RAG answer orchestration, and Streamlit question-answer UI with profile context, warnings, spinner, citations, and no-index/missing-key handling.
+
+### Error messages
+Initial Zone Brain scan failed on Windows cp1252 output because the script prints emoji. Re-ran with `PYTHONIOENCODING=utf-8` successfully. Initial tests found a circular import through `ingestion.__init__` and `vector_store`; this was fixed by moving `TextChunk` import behind `TYPE_CHECKING` in `vector_store.py`.
+
+### Root cause
+The retrieval code imported the vector store, which imported `campusai.ingestion.chunker`; package initialization also imported `indexer`, which imported the vector store again. This created a partial module initialization cycle.
+
+### Fix applied
+Added `TYPE_CHECKING` guarded typing in `vector_store.py`, avoiding runtime import of ingestion code from the vector store. Added unit tests for retriever, citations, answer-chain fallbacks, prompt authority instructions, and secret redaction. Added `openai` dependency for the OpenAI-compatible Groq client.
+
+### Verification
+- `python -m pytest` passed: 17 tests.
+- `python -m compileall src tests` passed.
+- `python -m campusai.index_documents` completed and indexed 10 chunks from 8 pages across 1 PDF file.
+- App import smoke check passed without printing secrets.
+- Linter diagnostics reported no errors on edited files.
+
+### Next step
+Run Phase 3 audit focused on retrieval quality, citation authority correctness, UI manual behavior, and Groq rate-limit/missing-key behavior.
+
+### Do not repeat
+Do not rotate multiple Groq keys, do not call Groq in tests, do not call Groq at app startup, do not expose `.env`, and do not make local heuristic advisor rules look official.
+
+---
+
 ## 2026-05-13 00:00 - Phase 2.5 / Public dataset adapter
 
 ### Context
