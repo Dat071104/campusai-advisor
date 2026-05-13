@@ -99,7 +99,7 @@ def test_study_path_query_widens_fetch_and_prefers_local_advisor_chunk():
     store = FakeStore(count=1, chunks=[berkeley, local])
     retriever = Retriever(make_settings(), embedding_model=FakeEmbeddings(), vector_store=store)
 
-    q = "before learning machine learning, which should we learn"
+    q = "What should I learn before Machine Learning?"
     chunks = retriever.retrieve(q, top_k=1)
 
     assert store.last_top_k == study_path_fetch_size(1)
@@ -174,3 +174,29 @@ def test_rerank_orders_local_above_berkeley_when_distances_favor_berkeley():
     )
     out = rerank_study_path_chunks([berkeley, local], top_k=2)
     assert [c.id for c in out] == ["l", "b"]
+
+
+def test_rerank_prefers_heuristic_authority_chunk_without_local_filename_markers():
+    berkeley = RetrievedChunk(
+        id="berkeley-1",
+        content="Berkeley scheduling policy text unrelated to ML prep.",
+        source="berkeley_cs_guide.pdf",
+        source_path="data/raw/berkeley_cs_guide.pdf",
+        distance=0.08,
+    )
+    local = RetrievedChunk(
+        id="local-1",
+        content="Probability and linear algebra before machine learning.",
+        source="other_notes.md",
+        source_path="data/raw/other_notes.md",
+        distance=0.22,
+        authority_level="heuristic",
+        source_type="local_advisor_rules",
+    )
+    store = FakeStore(count=1, chunks=[berkeley, local])
+    retriever = Retriever(make_settings(), embedding_model=FakeEmbeddings(), vector_store=store)
+
+    chunks = retriever.retrieve("What should I learn before Machine Learning?", top_k=1)
+
+    assert len(chunks) == 1
+    assert chunks[0].id == "local-1"

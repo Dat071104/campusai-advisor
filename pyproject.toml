@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 campusai-index = "campusai.index_documents:main"
+campusai-debug-retrieval = "campusai.debug_retrieval:main"
 
 [project.optional-dependencies]
 dev = [

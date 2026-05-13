@@ -12,6 +12,10 @@ class DocumentPage:
     source: str
     page_number: int
     source_path: str
+    document_type: str | None = None
+    authority: str | None = None
+    source_type: str | None = None
+    is_official_policy: bool | None = None
 
 
 def find_pdf_files(raw_data_dir: str | Path) -> list[Path]:
@@ -41,6 +45,7 @@ def load_pdf_pages(pdf_path: str | Path) -> list[DocumentPage]:
                     source=path.name,
                     page_number=index,
                     source_path=str(path),
+                    document_type="pdf",
                 )
             )
     return pages

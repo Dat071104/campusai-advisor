@@ -74,7 +74,7 @@ def render_document_sidebar() -> None:
     st.sidebar.button(
         "Index uploaded documents",
         disabled=True,
-        help="MVP indexes files from disk. Place PDFs under data/raw, then run: python -m campusai.index_documents",
+        help="MVP indexes PDF, Markdown, and .txt files from disk under data/raw. Run: python -m campusai.index_documents",
     )
     st.sidebar.caption(f"CLI reads PDFs from: `{settings.raw_data_path}`")
     if uploaded_files:
@@ -91,7 +91,7 @@ def render_status(settings: Settings, has_index: bool, manifest_exists: bool, ma
         st.sidebar.success("Vector index: embedded chunks detected.")
     else:
         st.sidebar.warning(
-            "No vector index detected. Run `python -m campusai.index_documents` after adding PDFs to data/raw."
+            "No vector index detected. Run `python -m campusai.index_documents` after adding PDFs, Markdown, or .txt files under data/raw."
         )
     if manifest_exists:
         st.sidebar.info(f"Dataset manifest on disk: {manifest_count} source record(s).")
@@ -184,7 +184,7 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
 
     if not has_index:
         st.error(
-            "**No index found.** Add PDFs to `data/raw`, run `python -m campusai.index_documents`, then refresh this page."
+            "**No index found.** Add PDFs, Markdown, or .txt files to `data/raw`, run `python -m campusai.index_documents`, then refresh this page."
         )
     if not settings.has_groq_key:
         st.warning(

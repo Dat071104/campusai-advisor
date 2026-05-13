@@ -22,6 +22,26 @@ def test_chunk_pages_preserves_metadata():
     assert chunks[0].id.startswith("catalog.pdf:p3:c0:")
 
 
+def test_chunk_pages_preserves_extended_metadata():
+    page = DocumentPage(
+        text="A" * 60,
+        source="campusai_local_advisor_rules.md",
+        page_number=1,
+        source_path="data/raw/documents/local/campusai_local_advisor_rules.md",
+        document_type="markdown",
+        authority="heuristic",
+        source_type="local_advisor_rules",
+        is_official_policy=False,
+    )
+
+    chunks = chunk_pages([page], chunk_size=25, chunk_overlap=5)
+
+    assert chunks[0].metadata["document_type"] == "markdown"
+    assert chunks[0].metadata["authority"] == "heuristic"
+    assert chunks[0].metadata["source_type"] == "local_advisor_rules"
+    assert chunks[0].metadata["is_official_policy"] is False
+
+
 def test_chunk_pages_rejects_invalid_overlap():
     page = DocumentPage(text="Text", source="a.pdf", page_number=1, source_path="a.pdf")
 
