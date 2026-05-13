@@ -1,0 +1,75 @@
+# CampusAI Advisor — Demo Script
+
+Use this script for portfolio walkthroughs, screen recordings, and interviews. The app is **Streamlit**: `streamlit run src/campusai/app.py`.
+
+## Before you demo
+
+1. **Local `.env`**: Copy `.env.example` to `.env` and set `GROQ_API_KEY` only on your machine. Never commit `.env`, paste keys into chat, or show keys in screenshots.
+2. **Index**: Stage PDFs under `data/raw`, run `python -m campusai.index_documents`. Optional: `python -m campusai.fetch_public_dataset` to refresh public dataset files and `data/processed/source_manifest.json`, then index again.
+3. **Rate limits**: Groq free tier is conservative. Wait a few seconds between live questions; if rate limited, wait and retry later.
+
+---
+
+## 2-minute demo flow
+
+1. **Open the app** — Point out the title, one-line product explanation, and **Dataset & index status** (manifest + vector index + Groq key indicator).
+2. **Sidebar** — Show **Student Profile** (major, year, goals) and **System Status** (embeddings model, paths). Mention that **local advisor rules are heuristic**, not official policy.
+3. **Ask one question** — Use: *"Trước khi học Machine Learning thì nên học gì?"* Wait for retrieval + answer.
+4. **Citations** — Expand one citation: **source**, **page** (if present), **authority label**. Optionally open **Technical details** for chunk id.
+5. **Close** — One sentence: RAG + local embeddings + Groq, citations for trust, honest limits when evidence is missing.
+
+---
+
+## 5-minute demo flow
+
+1. **Problem & solution** (30s) — Students need quick, **source-grounded** guidance; CampusAI retrieves indexed chunks, labels source authority, and uses Groq only **after** you submit a question (not on startup).
+2. **Architecture** (60s) — `data/raw` → chunk → FastEmbed → ChromaDB → retriever → prompt + citations → Groq client. No auth/DB in MVP.
+3. **Public dataset layer** (45s) — `python -m campusai.fetch_public_dataset` stages MIT FireRoad / Berkeley guide references and local heuristic rules; manifest at `data/processed/source_manifest.json`.
+4. **Indexing** (45s) — `python -m campusai.index_documents`; first run may download the embedding model.
+5. **Live Q&A** (90s) — Run the four sample questions below; compare **official/catalog-style** vs **heuristic local** labels.
+6. **Limitations** (30s) — Vector persistence on Streamlit Community Cloud may be ephemeral; public fetches can fail; model cold start.
+
+---
+
+## Sample questions (exact wording)
+
+| # | Question |
+|---|----------|
+| 1 | Trước khi học Machine Learning thì nên học gì? |
+| 2 | Berkeley CS lower division requirements gồm những gì? |
+| 3 | Local advisor rules có phải chính sách chính thức không? |
+| 4 | MIT FireRoad data nói gì về Computer Science requirements? |
+
+### Expected answer behavior
+
+1. **ML prerequisites** — Answer should combine retrieved chunk evidence with profile context when chunks match; if nothing relevant is retrieved, the app should **refuse to invent** prerequisites and say evidence is insufficient.
+2. **Berkeley lower division** — Should cite indexed Berkeley-related chunks when present; authority should reflect **public / catalog-style** labeling, not your home university’s official policy.
+3. **Local advisor rules vs policy** — Should state clearly that **heuristic local advisor sources are not official policy** (matches citation `authority_label` for heuristic sources).
+4. **MIT FireRoad** — Should summarize only what appears in indexed FireRoad-related content; if not indexed, should say the system lacks source evidence.
+
+### What to say in an interview
+
+- “I built a **RAG** academic-advising demo: **local embeddings**, **ChromaDB** retrieval, **authority-labeled citations**, and **Groq** behind a manual submit with **rate-limit guards**.”
+- “I separated **document-grounded** answers from **heuristic** local rules so the UI does not pretend unofficial text is policy.”
+- “I did **not** add auth, microservices, or key rotation—MVP scope stayed deployable and honest about limits.”
+
+### Known limitations
+
+- No upload-to-index in Streamlit yet (CLI indexing).
+- Single Groq key only; intentional **no backup key rotation** (rate-limit safety).
+- Retrieval quality depends on chunking and what was indexed.
+- Streamlit Community Cloud: **vector DB persistence** and **first FastEmbed download** can be slow or non-durable across restarts.
+- Public dataset HTTP endpoints may be **temporarily unavailable**.
+
+---
+
+## Manual live smoke test (minimal)
+
+**Only after** `.env` contains a valid `GROQ_API_KEY` locally.
+
+1. Ask **exactly one** safe test question first: *Trước khi học Machine Learning thì nên học gì?*
+2. **Do not spam** requests; wait a few seconds between questions.
+3. If you see a **rate limit** or **timeout** message, wait several minutes and retry.
+4. Never paste API keys into chat, README, screenshots, or logs.
+
+For a fuller checklist, see **README.md** → *Manual live smoke test*.

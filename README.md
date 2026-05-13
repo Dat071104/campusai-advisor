@@ -1,36 +1,63 @@
 # CampusAI Advisor
 
-CampusAI Advisor is a web-first AI academic advising and RAG chatbot MVP for university students. The current MVP provides a runnable Streamlit app, environment-based settings, PDF ingestion, text chunking, local FastEmbed embeddings, ChromaDB persistence, retrieval, citation formatting, and Groq-backed answer generation when a local `GROQ_API_KEY` is configured.
+## 1. Problem
 
-## Current Scope
+University students juggle **course planning**, **prerequisites**, and **policy-heavy documents**, but generic chatbots can **hallucinate** requirements or pretend unofficial notes are official. Recruiters also need a **credible demo**: grounded answers, visible sources, and honest limits.
 
-Implemented now:
+## 2. Solution
 
-- Python package under `src/campusai`
-- Streamlit question-answering UI with student profile sidebar
-- Environment settings loader with safe placeholders
-- Project dependency declaration in `pyproject.toml`
-- Basic smoke test for settings loading
-- Local data folders for future documents and vector store files
-- PDF loading from `data/raw`
-- Page-level text extraction with source metadata
-- Text chunking
-- Local embeddings with FastEmbed
-- Persistent local vector storage with ChromaDB
-- CLI indexing command
-- Local vector retrieval over indexed chunks
-- Citation formatting with source authority labels
-- Groq OpenAI-compatible chat client with missing-key fallback and free-tier rate safeguards
-- RAG answer chain that answers in Vietnamese by default and refuses unsupported policy claims
+**CampusAI Advisor** is a portfolio MVP: **local PDF ingestion**, **FastEmbed** embeddings, **ChromaDB** retrieval, **authority-labeled citations**, and **Groq**-backed answers **only after** you submit a question in Streamlit (no LLM calls on startup). Vietnamese-first answers are supported via the RAG prompt defaults.
 
-Not implemented yet:
+## 3. Features
 
-- Upload-to-index flow inside Streamlit
-- Authentication, databases, queues, or microservices
+- Streamlit UI with **student profile** context, **dataset/index status**, and **citation cards** (source, page, authority; chunk id in a collapsed technical section).
+- **CLI indexing** of PDFs from `data/raw` into a persistent local vector store (gitignored).
+- **Public dataset adapter** (MIT FireRoad, Berkeley CS guide references, local heuristic rules) via `python -m campusai.fetch_public_dataset` and `data/processed/source_manifest.json`.
+- **Groq** OpenAI-compatible client with **timeouts**, **retries**, **max tokens**, and **minimum spacing** between live requests.
+- Clear **empty states**: no index, no API key, no retrieval hits, rate limits, and timeouts.
 
-## Setup
+## 4. Tech stack
 
-Use Python 3.10 or newer.
+| Layer | Choice |
+|--------|--------|
+| Language | Python 3.10+ |
+| UI | Streamlit |
+| Embeddings | FastEmbed (local) |
+| Vector DB | ChromaDB (local path) |
+| PDF | PyMuPDF |
+| LLM | Groq (OpenAI-compatible client) |
+| Config | `python-dotenv` |
+| Tests | pytest |
+
+## 5. Architecture
+
+```text
+data/raw (PDFs + staged public files)
+    -> chunking + page metadata
+    -> FastEmbed embeddings
+    -> ChromaDB (data/vector_db)
+    -> Retriever (top_k)
+    -> Citations + authority labels (manifest-aware)
+    -> Prompt builder
+    -> Groq chat (manual submit only)
+    -> Streamlit answer + citation UI
+```
+
+Optional manifest path: `data/processed/source_manifest.json` (public sources + heuristics metadata).
+
+## 6. Dataset sources
+
+- **MIT FireRoad** — public structured course/requirement data (see adapter under `src/campusai/datasets/`).
+- **UC Berkeley CS Guide** — public HTML/PDF references (not your institution’s official catalog).
+- **Local heuristic advisor rules** — `data/raw/documents/local/campusai_local_advisor_rules.md`; **study guidance only**, not official policy.
+
+Run:
+
+```bash
+python -m campusai.fetch_public_dataset --timeout 20
+```
+
+## 7. Local setup
 
 ```bash
 python -m venv .venv
@@ -38,64 +65,47 @@ python -m venv .venv
 python -m pip install -e ".[dev]"
 ```
 
-Create a local `.env` only when you are ready to run later Groq-backed phases:
+Copy environment template (local only):
 
 ```bash
 copy .env.example .env
 ```
 
-Then paste your real Groq key into `.env` manually. Never commit `.env`.
+Edit `.env` and set `GROQ_API_KEY` when you are ready for live LLM answers. **Never commit `.env`.**
 
-## Run The App
+## 8. Environment variables
+
+See **`.env.example`** for placeholders. Important keys:
+
+| Variable | Role |
+|----------|------|
+| `GROQ_API_KEY` | Enables live Groq completions |
+| `GROQ_MODEL`, `GROQ_BASE_URL` | Model and endpoint |
+| `RAW_DATA_DIR` | PDF input directory |
+| `VECTOR_STORE_PATH`, `CHROMA_COLLECTION` | Chroma persistence |
+| `EMBEDDING_MODEL`, `EMBEDDING_DIM` | FastEmbed model |
+| `GROQ_TIMEOUT_SECONDS`, `GROQ_MIN_SECONDS_BETWEEN_REQUESTS`, `GROQ_MAX_RETRIES`, `GROQ_MAX_TOKENS` | Safety defaults |
+| `RAG_TOP_K` | Retrieval breadth |
+
+## 9. Run commands
 
 ```bash
+python -m campusai.fetch_public_dataset
+python -m campusai.index_documents
 streamlit run src/campusai/app.py
 ```
 
-The app shows student-profile fields, dataset/index status, a question form, answer output, and citation cards. It does not call Groq on startup; it only attempts a live Groq call after you manually submit a question and relevant chunks are retrieved.
-
-Free-tier safety defaults:
-
-```text
-GROQ_TIMEOUT_SECONDS=30
-GROQ_MIN_SECONDS_BETWEEN_REQUESTS=3
-GROQ_MAX_RETRIES=2
-GROQ_MAX_TOKENS=900
-RAG_TOP_K=5
-```
-
-## Index Local PDFs
-
-Put academic PDFs in `data/raw`, then run:
+Verify (no Groq calls):
 
 ```bash
-python -m campusai.index_documents
+python -m pytest
+python -m compileall src tests
+python -c "import campusai.app; print('app import ok')"
 ```
 
-or, after editable install:
+## 10. Demo questions
 
-```bash
-campusai-index
-```
-
-The first real indexing run may download the configured FastEmbed model. Indexed chunks are stored in `data/vector_db`, which is intentionally ignored by Git.
-
-Default indexing settings:
-
-```text
-RAW_DATA_DIR=data/raw
-VECTOR_STORE_PATH=data/vector_db
-CHROMA_COLLECTION=campusai_documents
-EMBEDDING_PROVIDER=fastembed
-EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
-EMBEDDING_DIM=384
-CHUNK_SIZE=800
-CHUNK_OVERLAP=150
-```
-
-## Manual RAG Test Questions
-
-After indexing documents and configuring `.env`, run the app and try:
+Try these after indexing and (optionally) configuring Groq:
 
 ```text
 Trước khi học Machine Learning thì nên học gì?
@@ -104,49 +114,70 @@ Local advisor rules có phải chính sách chính thức không?
 MIT FireRoad data nói gì về Computer Science requirements?
 ```
 
-Expected behavior: answers are in Vietnamese by default, citations are visible, local heuristic rules are labeled as not official policy, and missing evidence is stated clearly.
+Scripted flows: **`DEMO_SCRIPT.md`**.
 
-## Verify
+## 11. Safety and limitations
 
-```bash
-python -m pytest
-python -m compileall src tests
-python -c "from campusai.config import get_settings; print(get_settings().groq_model)"
-```
+- **Heuristic local rules** are labeled in citations; they are **not** official university policy.
+- **No invented policies**: if retrieval is empty, the chain returns a **no-evidence** style message.
+- **Single Groq key** by design — no backup key rotation (rate-limit discipline).
+- **Streamlit Community Cloud**: vector persistence may be **ephemeral**; first embedding model load can be **slow**; public HTTP sources may be **down** — see **`docs/DEPLOYMENT.md`**.
 
-## Project Layout
+## 12. Future improvements (V2+)
+
+- Upload-to-index inside Streamlit, job status, and user workspaces.
+- FastAPI + Next.js UI, PostgreSQL + pgvector, background indexing.
+- Evaluation harness for citation correctness and retrieval hit rate.
+
+## 13. CV bullets
+
+- Built **CampusAI Advisor**, a **RAG** academic advising MVP in Python with **local embeddings**, **ChromaDB** retrieval, **authority-aware citations**, **Groq** generation behind manual submit, and a **Streamlit** demo suitable for portfolio and interview walkthroughs.
+- Implemented **public dataset staging** (FireRoad / Berkeley references), **CLI indexing**, and **operational safeguards** (timeouts, spacing, retries) without committing secrets.
+
+---
+
+## Manual live smoke test
+
+**Run only after** a local `.env` is configured with a real `GROQ_API_KEY` (never paste keys into chat, README, screenshots, or logs).
+
+1. Start the app: `streamlit run src/campusai/app.py`.
+2. Confirm **Dataset & index status** shows a **ready** vector index (index documents first if needed).
+3. Ask **exactly one** safe test question first:  
+   `Trước khi học Machine Learning thì nên học gì?`
+4. **Do not spam** the API; wait a few seconds before a second question.
+5. If you hit **rate limit** or **timeout**, wait several minutes and retry.
+6. Confirm citations show **source**, **page** (when available), and **authority** labels.
+
+---
+
+## Documentation map
+
+| File | Purpose |
+|------|---------|
+| `DEMO_SCRIPT.md` | 2- and 5-minute demo, interview lines, limitations |
+| `docs/DEPLOYMENT.md` | Streamlit Community Cloud, secrets, indexing caveats |
+| `docs/PORTFOLIO_WRITEUP.md` | Short portfolio blurb |
+| `IMPLEMENTATION_LOG.md` | Session history and decisions |
+
+## Project layout
 
 ```text
 src/campusai/
-  app.py
+  app.py                 # Streamlit entrypoint
   config.py
   index_documents.py
+  fetch_public_dataset.py
+  datasets/
   ingestion/
-  services/
   rag/
-  ui/
+  services/
 tests/
 data/raw/
-data/vector_db/
-sample_docs/
+data/processed/
+data/vector_db/          # gitignored local Chroma files
+.streamlit/config.toml   # non-secret theme defaults
 ```
 
-## Public Dataset Adapter
+## Current scope note
 
-Phase 2.5 adds a public, verifiable dataset adapter layer that fetches or prepares:
-
-- MIT FireRoad public course and requirement data
-- UC Berkeley CS Guide HTML/PDF sources
-- Local heuristic advisor rules for study-path context
-
-Run the fetch command when you want to stage the public dataset files:
-
-```bash
-python -m campusai.fetch_public_dataset
-```
-
-The command writes a source manifest to `data/processed/source_manifest.json` and stores raw MIT FireRoad JSON under `data/raw/api/mit_fireroad/`. If a live fetch fails, the command preserves the failure gracefully and may leave manual download steps for the Berkeley source.
-
-## Next Phase
-
-Phase 3 audit should verify retrieval quality, citation correctness, Groq missing-key behavior, and Streamlit manual question flow before demo polish.
+In-app **PDF upload is staged**; indexing uses **`python -m campusai.index_documents`** reading from `data/raw`.

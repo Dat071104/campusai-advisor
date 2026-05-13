@@ -95,6 +95,43 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-05-13 14:00 - Phase 4 / UI polish, demo script, deployment docs
+
+### Context
+Phase 4 portfolio prep: polish Streamlit UI (sections, citations, warnings), add demo and deployment documentation, Streamlit theme config, README restructure, and verification without Groq calls.
+
+### Files touched
+- src/campusai/app.py
+- README.md
+- DEMO_SCRIPT.md
+- docs/DEPLOYMENT.md
+- docs/PORTFOLIO_WRITEUP.md
+- .streamlit/config.toml
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+python -m pytest
+python -m compileall src tests
+python -c "import campusai.app; print('app import ok')"
+```
+
+### Result
+Streamlit layout now foregrounds title, dataset/index metrics, help expander, and structured Q&A with cleaner citation cards and explicit heuristic vs policy messaging. Added demo script, Community Cloud deployment guide, portfolio write-up, and dark theme defaults.
+
+### Verification
+- `python -m pytest`: 17 passed.
+- `python -m compileall src tests`: ok.
+- `import campusai.app`: ok; no Groq calls; no `.env` printed.
+
+### Next step
+`READY_FOR_PHASE_4_AUDIT` — manual UI pass and optional Community Cloud trial deploy.
+
+### Do not repeat
+Do not add `.streamlit/secrets.toml` to git, do not embed API keys in docs, and do not call Groq during automated verification.
+
+---
+
 ## 2026-05-13 12:30 - Phase 3A / Remove unused backup Groq key placeholders
 
 ### Context
