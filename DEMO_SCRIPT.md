@@ -5,8 +5,9 @@ Use this script for portfolio walkthroughs, screen recordings, and interviews. T
 ## Before you demo
 
 1. **Local `.env`**: Copy `.env.example` to `.env` and set `GROQ_API_KEY` only on your machine. Never commit `.env`, paste keys into chat, or show keys in screenshots.
-2. **Index**: Stage PDFs under `data/raw`, run `python -m campusai.index_documents`. Optional: `python -m campusai.fetch_public_dataset` to refresh public dataset files and `data/processed/source_manifest.json`, then index again.
-3. **Rate limits**: Groq free tier is conservative. Wait a few seconds between live questions; if rate limited, wait and retry later.
+2. **Index**: Stage PDFs and local advisor Markdown under `data/raw` (for example `data/raw/documents/local/campusai_local_advisor_rules.md`), run `python -m campusai.index_documents`. If you previously indexed **PDFs only** and need Markdown in the same Chroma collection, run `python -m campusai.index_documents --reset` once, then index again. Optional: `python -m campusai.fetch_public_dataset` to refresh public dataset files and `data/processed/source_manifest.json`, then index again.
+3. **Retrieval check (no Groq)**: Run `python -m campusai.debug_retrieval "What should I learn before Machine Learning?"` and confirm `campusai_local_advisor_rules.md` appears near the top.
+4. **Rate limits**: Groq free tier is conservative. Wait a few seconds between live questions; if rate limited, wait and retry later.
 
 ---
 
@@ -25,7 +26,7 @@ Use this script for portfolio walkthroughs, screen recordings, and interviews. T
 1. **Problem & solution** (30s) — Students need quick, **source-grounded** guidance; CampusAI retrieves indexed chunks, labels source authority, and uses Groq only **after** you submit a question (not on startup).
 2. **Architecture** (60s) — `data/raw` → chunk → FastEmbed → ChromaDB → retriever → prompt + citations → Groq client. No auth/DB in MVP.
 3. **Public dataset layer** (45s) — `python -m campusai.fetch_public_dataset` stages MIT FireRoad / Berkeley guide references and local heuristic rules; manifest at `data/processed/source_manifest.json`.
-4. **Indexing** (45s) — `python -m campusai.index_documents`; first run may download the embedding model.
+4. **Indexing** (45s) — `python -m campusai.index_documents` (indexes PDF + `.md` + `.txt` under `data/raw`); use `--reset` if replacing a PDF-only index. Optional: `python -m campusai.debug_retrieval` to verify chunks before Groq.
 5. **Live Q&A** (90s) — Run the four sample questions below; compare **official/catalog-style** vs **heuristic local** labels.
 6. **Limitations** (30s) — Vector persistence on Streamlit Community Cloud may be ephemeral; public fetches can fail; model cold start.
 

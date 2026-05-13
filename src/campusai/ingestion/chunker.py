@@ -18,15 +18,28 @@ class TextChunk:
     page_number: int
     chunk_index: int
     source_path: str
+    document_type: str | None = None
+    authority: str | None = None
+    source_type: str | None = None
+    is_official_policy: bool | None = None
 
     @property
-    def metadata(self) -> dict[str, str | int]:
-        return {
+    def metadata(self) -> dict[str, str | int | float | bool]:
+        meta: dict[str, str | int | float | bool] = {
             "source": self.source,
             "page_number": self.page_number,
             "chunk_index": self.chunk_index,
             "source_path": self.source_path,
         }
+        if self.document_type:
+            meta["document_type"] = self.document_type
+        if self.authority:
+            meta["authority"] = self.authority
+        if self.source_type:
+            meta["source_type"] = self.source_type
+        if self.is_official_policy is not None:
+            meta["is_official_policy"] = self.is_official_policy
+        return meta
 
 
 def normalize_text(text: str) -> str:
@@ -78,4 +91,8 @@ def _make_chunk(page: DocumentPage, text: str, chunk_index: int) -> TextChunk:
         page_number=page.page_number,
         chunk_index=chunk_index,
         source_path=page.source_path,
+        document_type=page.document_type,
+        authority=page.authority,
+        source_type=page.source_type,
+        is_official_policy=page.is_official_policy,
     )

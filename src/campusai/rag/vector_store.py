@@ -21,6 +21,7 @@ class ChromaVectorStore:
             raise RuntimeError("chromadb is required for the local vector store.") from exc
 
         self._client = chromadb.PersistentClient(path=persist_path)
+        self._collection_name = collection_name
         self._collection = self._client.get_or_create_collection(name=collection_name)
 
     @property
@@ -28,6 +29,15 @@ class ChromaVectorStore:
         """Expose the underlying Chroma collection for read-only query adapters."""
 
         return self._collection
+
+    def reset_collection(self) -> None:
+        """Delete the backing collection if it exists, then recreate it empty."""
+
+        try:
+            self._client.delete_collection(self._collection_name)
+        except Exception:
+            pass
+        self._collection = self._client.get_or_create_collection(name=self._collection_name)
 
     def upsert_chunks(self, chunks: list["TextChunk"], embeddings: list[list[float]]) -> int:
         if len(chunks) != len(embeddings):

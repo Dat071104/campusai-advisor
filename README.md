@@ -6,12 +6,12 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 
 ## 2. Solution
 
-**CampusAI Advisor** is a portfolio MVP: **local PDF ingestion**, **FastEmbed** embeddings, **ChromaDB** retrieval, **authority-labeled citations**, and **Groq**-backed answers **only after** you submit a question in Streamlit (no LLM calls on startup). **Project-facing defaults are English**; users may still ask in other languages and can request a non-English answer explicitly.
+**CampusAI Advisor** is a portfolio MVP: **local document ingestion** (PDF, Markdown, plain text), **FastEmbed** embeddings, **ChromaDB** retrieval, **authority-labeled citations**, and **Groq**-backed answers **only after** you submit a question in Streamlit (no LLM calls on startup). **Project-facing defaults are English**; users may still ask in other languages and can request a non-English answer explicitly.
 
 ## 3. Features
 
 - Streamlit UI with **student profile** context, **dataset/index status**, and **citation cards** (source, page, authority; chunk id in a collapsed technical section).
-- **CLI indexing** of PDFs from `data/raw` into a persistent local vector store (gitignored).
+- **CLI indexing** of **PDF**, **Markdown (`.md`)**, and **plain text (`.txt`)** files discovered recursively under `data/raw/` into a persistent local vector store (gitignored).
 - **Public dataset adapter** (MIT FireRoad, Berkeley CS guide references, local heuristic rules) via `python -m campusai.fetch_public_dataset` and `data/processed/source_manifest.json`.
 - **Groq** OpenAI-compatible client with **timeouts**, **retries**, **max tokens**, and **minimum spacing** between live requests.
 - Clear **empty states**: no index, no API key, no retrieval hits, rate limits, and timeouts.
@@ -32,7 +32,7 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 ## 5. Architecture
 
 ```text
-data/raw (PDFs + staged public files)
+data/raw (PDFs + Markdown + .txt + staged public files)
     -> chunking + page metadata
     -> FastEmbed embeddings
     -> ChromaDB (data/vector_db)
@@ -81,7 +81,7 @@ See **`.env.example`** for placeholders. Important keys:
 |----------|------|
 | `GROQ_API_KEY` | Enables live Groq completions |
 | `GROQ_MODEL`, `GROQ_BASE_URL` | Model and endpoint |
-| `RAW_DATA_DIR` | PDF input directory |
+| `RAW_DATA_DIR` | Input directory for PDF, Markdown, and `.txt` indexing |
 | `VECTOR_STORE_PATH`, `CHROMA_COLLECTION` | Chroma persistence |
 | `EMBEDDING_MODEL`, `EMBEDDING_DIM` | FastEmbed model |
 | `GROQ_TIMEOUT_SECONDS`, `GROQ_MIN_SECONDS_BETWEEN_REQUESTS`, `GROQ_MAX_RETRIES`, `GROQ_MAX_TOKENS` | Safety defaults |
@@ -92,6 +92,10 @@ See **`.env.example`** for placeholders. Important keys:
 ```bash
 python -m campusai.fetch_public_dataset
 python -m campusai.index_documents
+# If an older index only contains PDF chunks, reset the Chroma collection then reindex:
+python -m campusai.index_documents --reset
+# Verify retrieval (embeddings + Chroma only; no Groq, no API key required):
+python -m campusai.debug_retrieval "What should I learn before Machine Learning?"
 streamlit run src/campusai/app.py
 ```
 
@@ -100,6 +104,7 @@ Verify (no Groq calls):
 ```bash
 python -m pytest
 python -m compileall src tests
+python -m campusai.debug_retrieval "What should I learn before Machine Learning?"
 python -c "import campusai.app; print('app import ok')"
 ```
 

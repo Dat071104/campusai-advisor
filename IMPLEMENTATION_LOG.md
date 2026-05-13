@@ -534,3 +534,60 @@ Phase 4A audit re-run (manual smoke with `What should I learn before Machine Lea
 ### Do not repeat
 Keep project-facing text English by default; smoke-test retrieval with the English ML study-path question and expect local heuristic chunks to rank above unrelated Berkeley scheduling text when that file is in the index.
 
+---
+
+## 2026-05-13 - Phase 4B fix — index Markdown/TXT + reset + debug retrieval
+
+### Context
+Manual smoke test: `campusai_local_advisor_rules.md` existed under `data/raw/documents/local/` but retrieval kept surfacing Berkeley PDF chunks. Indexing CLI reported only PDF page counts, implying Markdown/text was never ingested.
+
+### Files touched
+- `src/campusai/ingestion/pdf_loader.py`
+- `src/campusai/ingestion/text_loader.py`
+- `src/campusai/ingestion/chunker.py`
+- `src/campusai/ingestion/indexer.py`
+- `src/campusai/index_documents.py`
+- `src/campusai/debug_retrieval.py`
+- `src/campusai/rag/vector_store.py`
+- `src/campusai/rag/retriever.py`
+- `src/campusai/app.py`
+- `pyproject.toml`
+- `README.md`
+- `DEMO_SCRIPT.md`
+- `IMPLEMENTATION_LOG.md`
+- `tests/test_chunker.py`
+- `tests/test_ingestion_smoke.py`
+- `tests/test_retriever.py`
+- `tests/test_text_loader.py`
+- `tests/test_vector_store.py`
+
+### Commands run
+```bash
+python -m pytest
+python -m compileall src tests
+python -m campusai.index_documents --reset
+python -m campusai.debug_retrieval "What should I learn before Machine Learning?"
+```
+
+### Root cause
+The indexer only discovered `*.pdf` under `RAW_DATA_DIR` and never loaded `.md`/`.txt`, so local advisor heuristics were absent from Chroma despite the file on disk.
+
+### Fix applied
+- Recursive Markdown + plain-text discovery and UTF-8 loading with rich metadata (`document_type`, `authority`, `source_type`, `is_official_policy` for `campusai_local_advisor_rules.md`).
+- Extended `DocumentPage` / `TextChunk` metadata (PDFs keep `document_type="pdf"`).
+- `python -m campusai.index_documents --reset` clears the Chroma collection before upsert when requested.
+- `python -m campusai.debug_retrieval` dry-run (no Groq, no API key) prints ranked chunks with previews; reconfigures UTF-8 stdout on Windows so PDF unicode previews do not crash the CLI.
+- Tests for text loader, chunk metadata, ingestion of Markdown-only trees, Chroma reset, and rerank behavior.
+
+### Verification
+- `python -m pytest`: 48 passed.
+- `python -m compileall src tests`: ok.
+- `python -m campusai.index_documents --reset`: reported 11 chunks from 9 pages (1 PDF + 1 markdown/text file).
+- `python -m campusai.debug_retrieval "What should I learn before Machine Learning?"`: rank 1 `campusai_local_advisor_rules.md`, authority `heuristic`.
+
+### Next step
+Phase 4B audit: optional live Groq smoke after confirming `debug_retrieval` shows local advisor chunks at the top.
+
+### Do not repeat
+Assume “indexing” includes every source type you ship on disk; extend discovery when adding new raw formats, and use `debug_retrieval` before blaming the LLM for missing context.
+

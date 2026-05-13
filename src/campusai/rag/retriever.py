@@ -212,7 +212,7 @@ def _parse_chroma_results(results: dict[str, Any]) -> list[RetrievedChunk]:
                 page_number=_optional_int(metadata.get("page_number") or metadata.get("page")),
                 chunk_index=_optional_int(metadata.get("chunk_index")),
                 distance=_optional_float(distances[idx]) if idx < len(distances) else None,
-                authority_level=_optional_str(metadata.get("authority_level")),
+                authority_level=_optional_str(metadata.get("authority_level") or metadata.get("authority")),
                 source_type=_optional_str(metadata.get("source_type")),
             )
         )
