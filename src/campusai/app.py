@@ -19,14 +19,16 @@ def render_profile_sidebar() -> None:
 
 def render_document_sidebar() -> None:
     st.sidebar.header("Documents")
+    settings = get_settings()
     uploaded_files = st.sidebar.file_uploader(
         "Upload academic documents",
         type=["pdf", "txt", "md"],
         accept_multiple_files=True,
     )
-    st.sidebar.button("Index documents", disabled=True, help="Document indexing starts in a later phase.")
+    st.sidebar.button("Index uploaded documents", disabled=True, help="Upload indexing will connect to the local pipeline in a later UI pass.")
+    st.sidebar.caption(f"Local index command reads `{settings.raw_data_path}`.")
     if uploaded_files:
-        st.sidebar.info("Upload UI is ready. Indexing is not implemented in Phase 1.")
+        st.sidebar.info("Upload UI is ready. For Phase 2, index local PDFs with `python -m campusai.index_documents`.")
     else:
         st.sidebar.caption("No documents selected.")
 
@@ -36,14 +38,15 @@ def render_status() -> None:
     st.sidebar.header("System Status")
     st.sidebar.success("App foundation loaded")
     st.sidebar.caption(f"Groq model: {settings.groq_model}")
-    st.sidebar.caption(f"Embeddings: {settings.embedding_provider}")
+    st.sidebar.caption(f"Embeddings: {settings.embedding_provider} / {settings.embedding_model}")
+    st.sidebar.caption(f"Vector store: {settings.vector_store_path}")
     st.sidebar.caption("Groq key detected" if settings.has_groq_key else "Groq key not configured")
 
 
 def render_chat_placeholder() -> None:
     st.subheader("Advisor Chat")
     st.info(
-        "Phase 1 placeholder: chat, retrieval, citations, and Groq calls are intentionally not implemented yet."
+        "Phase 2 placeholder: local document indexing exists, but chat, retrieval, citations, and Groq calls are intentionally not implemented yet."
     )
 
     question = st.chat_input("Ask about courses, prerequisites, policies, or study direction")
@@ -52,7 +55,7 @@ def render_chat_placeholder() -> None:
             st.write(question)
         with st.chat_message("assistant"):
             st.write(
-                "The system does not have enough source evidence yet because document ingestion and retrieval are not implemented in Phase 1."
+                "The system does not have enough source evidence yet because retrieval and answer generation are not implemented in Phase 2."
             )
             with st.expander("Sources"):
                 st.caption("No citations available until documents are indexed in a later phase.")

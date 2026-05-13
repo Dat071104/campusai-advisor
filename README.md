@@ -1,8 +1,8 @@
 # CampusAI Advisor
 
-CampusAI Advisor is a web-first AI academic advising and RAG chatbot MVP for university students. The Phase 1 foundation provides a runnable Streamlit shell, environment-based settings, and a clean Python package layout for the later document ingestion, retrieval, citation, and Groq answer-generation phases.
+CampusAI Advisor is a web-first AI academic advising and RAG chatbot MVP for university students. The current foundation provides a runnable Streamlit shell, environment-based settings, PDF ingestion, text chunking, local FastEmbed embeddings, and ChromaDB persistence for later retrieval and Groq answer generation.
 
-## Phase 1 Scope
+## Current Scope
 
 Implemented now:
 
@@ -12,14 +12,18 @@ Implemented now:
 - Project dependency declaration in `pyproject.toml`
 - Basic smoke test for settings loading
 - Local data folders for future documents and vector store files
+- PDF loading from `data/raw`
+- Page-level text extraction with source metadata
+- Text chunking
+- Local embeddings with FastEmbed
+- Persistent local vector storage with ChromaDB
+- CLI indexing command
 
-Not implemented in Phase 1:
+Not implemented yet:
 
 - Real Groq API calls
-- Document ingestion
-- Embeddings
-- Vector search
-- Full RAG answers
+- Chat/RAG answer generation
+- Retrieval UI and citation cards
 - Authentication, databases, queues, or microservices
 
 ## Setup
@@ -48,6 +52,35 @@ streamlit run src/campusai/app.py
 
 The current app is a Phase 1 placeholder. It shows student-profile fields, document upload controls, chat input, and explicit "not yet implemented" states without calling Groq or processing documents.
 
+## Index Local PDFs
+
+Put academic PDFs in `data/raw`, then run:
+
+```bash
+python -m campusai.index_documents
+```
+
+or, after editable install:
+
+```bash
+campusai-index
+```
+
+The first real indexing run may download the configured FastEmbed model. Indexed chunks are stored in `data/vector_db`, which is intentionally ignored by Git.
+
+Default indexing settings:
+
+```text
+RAW_DATA_DIR=data/raw
+VECTOR_STORE_PATH=data/vector_db
+CHROMA_COLLECTION=campusai_documents
+EMBEDDING_PROVIDER=fastembed
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+EMBEDDING_DIM=384
+CHUNK_SIZE=800
+CHUNK_OVERLAP=150
+```
+
 ## Verify
 
 ```bash
@@ -61,6 +94,8 @@ python -c "from campusai.config import get_settings; print(get_settings().groq_m
 src/campusai/
   app.py
   config.py
+  index_documents.py
+  ingestion/
   services/
   rag/
   ui/
@@ -72,4 +107,4 @@ sample_docs/
 
 ## Next Phase
 
-Phase 1 audit should verify the foundation. After that, the next implementation step is document loading and chunking with focused tests.
+Phase 2 audit should verify the ingestion/indexing pipeline. After that, the next implementation step is retrieval, citation formatting, and Groq-backed answer generation.

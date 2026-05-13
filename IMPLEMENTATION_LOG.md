@@ -95,6 +95,61 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-05-12 22:44 - Phase 2 / Document ingestion and local indexing
+
+### Context
+Implemented the Phase 2 local document ingestion and indexing pipeline without creating `.env`, adding secrets, or calling Groq.
+
+### Files touched
+- .env.example
+- README.md
+- pyproject.toml
+- src/campusai/config.py
+- src/campusai/app.py
+- src/campusai/index_documents.py
+- src/campusai/ingestion/__init__.py
+- src/campusai/ingestion/pdf_loader.py
+- src/campusai/ingestion/chunker.py
+- src/campusai/ingestion/indexer.py
+- src/campusai/rag/embeddings.py
+- src/campusai/rag/vector_store.py
+- tests/test_chunker.py
+- tests/test_ingestion_smoke.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+Get-Location | Select-Object -ExpandProperty Path
+python -m pip install -e ".[dev]"
+pytest
+python -m compileall src tests
+python -m campusai.index_documents
+git status --short
+```
+
+### Result
+PDF discovery/loading, page metadata extraction, chunking, FastEmbed embedding wrapper, ChromaDB vector-store wrapper, indexing service, and `python -m campusai.index_documents` command are implemented. Empty `data/raw` is handled without crashing.
+
+### Error messages
+None. Pip emitted cache deserialization warnings, but dependency installation completed successfully.
+
+### Root cause
+No bug was being fixed. This was the next MVP implementation increment after Phase 1 foundation.
+
+### Fix applied
+Added Phase 2 pipeline modules and tests. Added direct dependencies `pymupdf`, `fastembed`, and `chromadb`. Tests use fakes for embeddings and vector storage so they do not require network, model downloads, real PDFs, or API keys.
+
+### Verification
+`pytest` passed with 5 tests. `compileall` completed for `src` and `tests`. `python -m campusai.index_documents` returned `No PDF files found in data\raw.` with exit code 0.
+
+### Next step
+Run Phase 2 audit, then implement retrieval, citation formatting, and Groq-backed answer generation in the next phase.
+
+### Do not repeat
+Do not run real indexing with private documents unless the user has placed safe local PDFs in `data/raw`. Do not call Groq or add real keys before the answer-generation phase.
+
+---
+
 ## 2026-05-12 22:28 - Phase 1 / Project foundation
 
 ### Context
