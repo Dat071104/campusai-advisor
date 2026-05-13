@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -63,6 +64,81 @@ class ChromaRetrieverStore:
         return _parse_chroma_results(results)
 
 
+_ML_WORD = re.compile(r"\bml\b", re.IGNORECASE)
+
+# Strong study-path / “what to learn before X” phrasing (avoids reranking generic “prerequisite for course Y” queries).
+_STUDY_PATH_STRONG_MARKERS = (
+    "before learning",
+    "prepare for",
+    "should i learn before",
+    "should we learn before",
+    "what should i learn before",
+    "what should we learn before",
+    "study path",
+)
+
+# Paths / filenames that identify the packaged local advisor markdown.
+_LOCAL_ADVISOR_SOURCE_MARKERS = (
+    "campusai_local_advisor_rules",
+    "local_advisor",
+    "documents/local/",
+    "/local/campusai",
+)
+
+# Extra semantic retrieval breadth for study-path questions, then rerank locally.
+_STUDY_PATH_FETCH_CAP = 32
+
+
+def is_study_path_prerequisite_query(question: str) -> bool:
+    """True when the question is about study ordering / ML prep, not generic catalog policy lookup."""
+
+    q = (question or "").lower()
+    if any(marker in q for marker in _STUDY_PATH_STRONG_MARKERS):
+        return True
+    if "machine learning" in q or _ML_WORD.search(q) is not None:
+        if "prerequisite" in q or "prerequisites" in q:
+            return True
+        if "before" in q and "learn" in q:
+            return True
+    return False
+
+
+def chunk_matches_local_advisor_source(chunk: RetrievedChunk) -> bool:
+    path = (chunk.source_path or "").lower().replace("\\", "/")
+    src = (chunk.source or "").lower().replace("\\", "/")
+    blob = f"{path} {src}"
+    return any(marker in blob for marker in _LOCAL_ADVISOR_SOURCE_MARKERS)
+
+
+def rerank_study_path_chunks(chunks: list[RetrievedChunk], *, top_k: int) -> list[RetrievedChunk]:
+    """Prefer local advisor / heuristic chunks for study-path queries; keep vector order as tie-breaker."""
+
+    if top_k <= 0 or not chunks:
+        return []
+
+    def score_tuple(chunk: RetrievedChunk, position: int) -> tuple[float, int]:
+        dist = chunk.distance
+        base = -float(dist) if dist is not None else 0.0
+        boost = 0.0
+        if chunk_matches_local_advisor_source(chunk):
+            boost += 2.25
+        auth = (chunk.authority_level or "").lower()
+        if auth in {"heuristic_local", "heuristic"}:
+            boost += 0.35
+        # Slight preference for heuristic-like source_type from ingestion manifest echo.
+        st = (chunk.source_type or "").lower()
+        if "heuristic" in st:
+            boost += 0.15
+        return (base + boost, -position)
+
+    ordered = sorted(enumerate(chunks), key=lambda pair: score_tuple(pair[1], pair[0]), reverse=True)
+    return [pair[1] for pair in ordered[:top_k]]
+
+
+def study_path_fetch_size(requested_top_k: int) -> int:
+    return min(_STUDY_PATH_FETCH_CAP, max(requested_top_k * 4, 16))
+
+
 class Retriever:
     """Embeds user questions and retrieves relevant indexed chunks."""
 
@@ -87,8 +163,14 @@ class Retriever:
         normalized = question.strip()
         if not normalized or not self.has_index():
             return []
+        k = top_k or self.settings.rag_top_k
         query_embedding = self.embedding_model.embed([normalized])[0]
-        return self.vector_store.query(query_embedding, top_k or self.settings.rag_top_k)
+        study_path = is_study_path_prerequisite_query(normalized)
+        fetch_k = study_path_fetch_size(k) if study_path else k
+        chunks = self.vector_store.query(query_embedding, fetch_k)
+        if study_path:
+            return rerank_study_path_chunks(chunks, top_k=k)
+        return chunks[:k]
 
 
 def index_exists(settings: Settings | None = None) -> bool:

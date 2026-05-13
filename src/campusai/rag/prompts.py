@@ -5,17 +5,20 @@ from __future__ import annotations
 from campusai.rag.citations import Citation, format_citations_for_prompt
 from campusai.rag.retriever import RetrievedChunk
 
-SYSTEM_PROMPT = """Bạn là CampusAI Advisor, trợ lý học thuật cho sinh viên Computer Science.
-Mặc định trả lời bằng tiếng Việt, trừ khi người dùng yêu cầu ngôn ngữ khác.
+SYSTEM_PROMPT = """You are CampusAI Advisor, an academic assistant for Computer Science students.
 
-Quy tắc bắt buộc:
-- Chỉ dùng ngữ cảnh truy xuất được để khẳng định các quy định học thuật, prerequisite, graduation requirement, hoặc chính sách chính thức.
-- Nếu tài liệu không đủ bằng chứng, nói rõ: tài liệu hiện có chưa đủ thông tin để kết luận.
-- Không bao giờ biến local advisor heuristic thành chính sách chính thức của trường.
-- Nếu nguồn official/catalog-style mâu thuẫn với heuristic local advisor, ưu tiên nguồn official/catalog-style.
-- Tách bạch lời khuyên học tập/nghề nghiệp tổng quát với kết luận dựa trên tài liệu.
-- Câu trả lời nên ngắn gọn, hữu ích cho sinh viên CS hỏi về study path, prerequisites, và career direction.
-- Luôn đưa mục "Nguồn" với citation id khi có ngữ cảnh.
+Language:
+- Answer in English by default.
+- If the user explicitly asks for another language (for example Vietnamese), you may answer in that language for that turn only.
+
+Evidence and tone:
+- Use retrieved context to support claims about academic rules, prerequisites, graduation requirements, or official policy only when that context actually applies.
+- If retrieved snippets are weak, off-topic, or do not support a confident answer, say clearly that indexed context is insufficient and avoid inventing requirements or policy.
+- Never present heuristic local advisor text as official university policy.
+- When official/catalog-style sources conflict with heuristic local advisor content, prefer the official/catalog-style source for policy-like conclusions.
+- Separate general study/career guidance from document-backed conclusions.
+- Keep answers concise and useful for CS students asking about study paths, prerequisites, and career direction.
+- When you use retrieved context, include a "Sources" section with citation ids.
 """
 
 
@@ -25,6 +28,7 @@ def build_rag_prompt(
     chunks: list[RetrievedChunk],
     citations: list[Citation],
     student_profile: dict[str, str],
+    retrieval_quality_note: str | None = None,
 ) -> str:
     context_blocks = []
     for idx, chunk in enumerate(chunks, start=1):
@@ -39,38 +43,41 @@ def build_rag_prompt(
             f"Content: {chunk.content}"
         )
 
-    context_text = "\n\n".join(context_blocks) if context_blocks else "Không có ngữ cảnh truy xuất được."
+    context_text = "\n\n".join(context_blocks) if context_blocks else "No retrieved context."
     profile_text = _format_profile(student_profile)
     citation_text = format_citations_for_prompt(citations)
+    note_block = ""
+    if retrieval_quality_note:
+        note_block = f"\nRetrieval note:\n{retrieval_quality_note.strip()}\n"
 
     return f"""{SYSTEM_PROMPT}
-
-Hồ sơ sinh viên:
+{note_block}
+Student profile:
 {profile_text}
 
-Câu hỏi của sinh viên:
+Student question:
 {question.strip()}
 
-Ngữ cảnh truy xuất:
+Retrieved context:
 {context_text}
 
-Danh sách citation hợp lệ:
+Valid citations:
 {citation_text}
 
-Hãy trả lời theo cấu trúc:
-1. Trả lời ngắn gọn
-2. Vì sao áp dụng cho sinh viên này
-3. Nguồn
-4. Lưu ý / phần chưa đủ bằng chứng
+Answer using this structure:
+1. Short answer
+2. Why it applies to this student (when evidence supports it)
+3. Sources (citation ids)
+4. Caveats / where evidence is insufficient
 """.strip()
 
 
 def _format_profile(student_profile: dict[str, str]) -> str:
     if not student_profile:
-        return "- Chưa cung cấp hồ sơ."
+        return "- No profile fields provided."
     lines = []
     for key, value in student_profile.items():
         cleaned = str(value).strip()
         if cleaned:
             lines.append(f"- {key}: {cleaned}")
-    return "\n".join(lines) if lines else "- Chưa cung cấp hồ sơ."
+    return "\n".join(lines) if lines else "- No profile fields provided."

@@ -35,7 +35,7 @@ class GroqChatClient:
     def generate(self, prompt: str, *, system_prompt: str | None = None) -> LLMResponse:
         if not self.settings.groq_api_key:
             return LLMResponse(
-                content="Chưa cấu hình GROQ_API_KEY. Hãy tạo file .env từ .env.example và thêm key Groq cục bộ để bật trả lời bằng LLM.",
+                content="GROQ_API_KEY is not configured. Copy .env.example to .env and set GROQ_API_KEY locally to enable live LLM answers.",
                 used_live_api=False,
                 error="missing_api_key",
             )
@@ -43,7 +43,7 @@ class GroqChatClient:
         try:
             from openai import OpenAI
         except ImportError as exc:
-            raise GroqClientError("Thiếu dependency openai. Hãy chạy python -m pip install -e \".[dev]\".") from exc
+            raise GroqClientError('Missing dependency "openai". Run: python -m pip install -e ".[dev]"') from exc
 
         client = OpenAI(
             api_key=self.settings.groq_api_key,
@@ -131,9 +131,9 @@ def _error_code(exc: Exception) -> str:
 def _friendly_error_message(exc: Exception) -> str:
     code = _error_code(exc)
     if code == "rate_limited":
-        return "Groq đang giới hạn tốc độ miễn phí. Hãy chờ một chút rồi gửi lại câu hỏi."
+        return "Groq rate limit reached. Wait a bit, then try your question again."
     if code == "timeout":
-        return "Yêu cầu Groq bị quá thời gian chờ. Hãy thử lại với câu hỏi ngắn hơn hoặc đợi vài giây."
+        return "Groq request timed out. Try a shorter question or wait a few seconds and retry."
     if code == "server_error":
-        return "Groq đang gặp lỗi máy chủ tạm thời. Hãy thử lại sau."
-    return "Không thể gọi Groq lúc này. Vui lòng kiểm tra cấu hình .env và kết nối mạng."
+        return "Groq returned a temporary server error. Please try again later."
+    return "Could not reach Groq right now. Check your .env configuration and network connectivity."

@@ -63,7 +63,7 @@ def test_no_context_fallback_does_not_call_llm():
     result = chain.answer_question("Unknown policy?", {})
 
     assert result.no_context is True
-    assert "chưa có đủ thông tin" in result.answer
+    assert "indexed context" in result.answer.lower() or "not contain enough relevant context" in result.answer
     assert client.prompt is None
 
 
@@ -85,9 +85,38 @@ def test_prompt_includes_authority_instructions():
     result = chain.answer_question("Local rules official?", {"career_goal": "AI Engineer"})
 
     assert result.no_context is False
-    assert "Không bao giờ biến local advisor heuristic" in client.prompt
+    assert "Never present heuristic local advisor text" in client.prompt
     assert "Heuristic local advisor source" in client.prompt
     assert "career_goal" in client.prompt
+
+
+def test_answer_chain_prompt_includes_retrieval_note_when_study_path_and_no_local_chunk():
+    class TwoChunkRetriever:
+        def retrieve(self, question, top_k=None):
+            return [
+                RetrievedChunk(
+                    id="b1",
+                    content="Unrelated policy.",
+                    source="berkeley_cs_guide.pdf",
+                    source_path="data/raw/berkeley_cs_guide.pdf",
+                    distance=0.2,
+                ),
+                RetrievedChunk(
+                    id="b2",
+                    content="Another unrelated chunk.",
+                    source="berkeley_cs_guide.pdf",
+                    source_path="data/raw/berkeley_cs_guide.pdf",
+                    distance=0.3,
+                ),
+            ]
+
+    client = FakeClient()
+    chain = RAGAnswerChain(make_settings(), retriever=TwoChunkRetriever(), chat_client=client)
+
+    chain.answer_question("before learning machine learning, what should I study?", {"major": "CS"})
+
+    assert client.prompt is not None
+    assert "Study-path / prerequisites style question" in client.prompt
 
 
 def test_secret_redaction_does_not_reveal_full_key():

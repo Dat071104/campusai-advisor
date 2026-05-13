@@ -1,4 +1,4 @@
-from campusai.rag.citations import build_citations, infer_authority_level
+from campusai.rag.citations import build_citations, format_citations_for_prompt, infer_authority_level
 from campusai.rag.retriever import RetrievedChunk
 
 
@@ -36,3 +36,7 @@ def test_citation_uses_manifest_authority():
 
     assert citation.authority_level == "official"
     assert citation.authority_label == "Official/catalog-style source"
+
+
+def test_format_citations_for_prompt_empty_is_english():
+    assert format_citations_for_prompt([]) == "No citations."

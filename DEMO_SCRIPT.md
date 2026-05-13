@@ -14,7 +14,7 @@ Use this script for portfolio walkthroughs, screen recordings, and interviews. T
 
 1. **Open the app** — Point out the title, one-line product explanation, and **Dataset & index status** (manifest + vector index + Groq key indicator).
 2. **Sidebar** — Show **Student Profile** (major, year, goals) and **System Status** (embeddings model, paths). Mention that **local advisor rules are heuristic**, not official policy.
-3. **Ask one question** — Use: *"Trước khi học Machine Learning thì nên học gì?"* Wait for retrieval + answer.
+3. **Ask one question** — Use: *"What should I learn before Machine Learning?"* Wait for retrieval + answer.
 4. **Citations** — Expand one citation: **source**, **page** (if present), **authority label**. Optionally open **Technical details** for chunk id.
 5. **Close** — One sentence: RAG + local embeddings + Groq, citations for trust, honest limits when evidence is missing.
 
@@ -35,14 +35,14 @@ Use this script for portfolio walkthroughs, screen recordings, and interviews. T
 
 | # | Question |
 |---|----------|
-| 1 | Trước khi học Machine Learning thì nên học gì? |
-| 2 | Berkeley CS lower division requirements gồm những gì? |
-| 3 | Local advisor rules có phải chính sách chính thức không? |
-| 4 | MIT FireRoad data nói gì về Computer Science requirements? |
+| 1 | What should I learn before Machine Learning? |
+| 2 | What are Berkeley CS lower division requirements? |
+| 3 | Are local advisor rules official university policy? |
+| 4 | What does MIT FireRoad data say about Computer Science requirements? |
 
 ### Expected answer behavior
 
-1. **ML prerequisites** — Answer should combine retrieved chunk evidence with profile context when chunks match; if nothing relevant is retrieved, the app should **refuse to invent** prerequisites and say evidence is insufficient.
+1. **ML prerequisites** — Retrieval prefers **heuristic local advisor** chunks for study-path phrasing when that file is indexed; answers stay **English by default** and treat local rules as **not official policy**. If nothing relevant is retrieved, the model should say **indexed context is insufficient** rather than invent prerequisites.
 2. **Berkeley lower division** — Should cite indexed Berkeley-related chunks when present; authority should reflect **public / catalog-style** labeling, not your home university’s official policy.
 3. **Local advisor rules vs policy** — Should state clearly that **heuristic local advisor sources are not official policy** (matches citation `authority_label` for heuristic sources).
 4. **MIT FireRoad** — Should summarize only what appears in indexed FireRoad-related content; if not indexed, should say the system lacks source evidence.
@@ -67,7 +67,7 @@ Use this script for portfolio walkthroughs, screen recordings, and interviews. T
 
 **Only after** `.env` contains a valid `GROQ_API_KEY` locally.
 
-1. Ask **exactly one** safe test question first: *Trước khi học Machine Learning thì nên học gì?*
+1. Ask **exactly one** safe test question first: *What should I learn before Machine Learning?*
 2. **Do not spam** requests; wait a few seconds between questions.
 3. If you see a **rate limit** or **timeout** message, wait several minutes and retry.
 4. Never paste API keys into chat, README, screenshots, or logs.

@@ -130,7 +130,7 @@ def authority_label(authority_level: str) -> str:
 
 def format_citations_for_prompt(citations: list[Citation]) -> str:
     if not citations:
-        return "Không có trích dẫn."
+        return "No citations."
     lines: list[str] = []
     for idx, citation in enumerate(citations, start=1):
         page = f", page {citation.page_number}" if citation.page_number is not None else ""

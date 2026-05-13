@@ -202,7 +202,7 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
     with st.form("rag_question_form", clear_on_submit=False):
         question = st.text_area(
             "Your question",
-            placeholder="Trước khi học Machine Learning thì nên học gì?",
+            placeholder="What should I learn before Machine Learning?",
             height=110,
             label_visibility="visible",
         )

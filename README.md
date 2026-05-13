@@ -6,7 +6,7 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 
 ## 2. Solution
 
-**CampusAI Advisor** is a portfolio MVP: **local PDF ingestion**, **FastEmbed** embeddings, **ChromaDB** retrieval, **authority-labeled citations**, and **Groq**-backed answers **only after** you submit a question in Streamlit (no LLM calls on startup). Vietnamese-first answers are supported via the RAG prompt defaults.
+**CampusAI Advisor** is a portfolio MVP: **local PDF ingestion**, **FastEmbed** embeddings, **ChromaDB** retrieval, **authority-labeled citations**, and **Groq**-backed answers **only after** you submit a question in Streamlit (no LLM calls on startup). **Project-facing defaults are English**; users may still ask in other languages and can request a non-English answer explicitly.
 
 ## 3. Features
 
@@ -108,10 +108,10 @@ python -c "import campusai.app; print('app import ok')"
 Try these after indexing and (optionally) configuring Groq:
 
 ```text
-Trước khi học Machine Learning thì nên học gì?
-Berkeley CS lower division requirements gồm những gì?
-Local advisor rules có phải chính sách chính thức không?
-MIT FireRoad data nói gì về Computer Science requirements?
+What should I learn before Machine Learning?
+What are Berkeley CS lower division requirements?
+Are local advisor rules official university policy?
+What does MIT FireRoad data say about Computer Science requirements?
 ```
 
 Scripted flows: **`DEMO_SCRIPT.md`**.
@@ -143,7 +143,7 @@ Scripted flows: **`DEMO_SCRIPT.md`**.
 1. Start the app: `streamlit run src/campusai/app.py`.
 2. Confirm **Dataset & index status** shows a **ready** vector index (index documents first if needed).
 3. Ask **exactly one** safe test question first:  
-   `Trước khi học Machine Learning thì nên học gì?`
+   `What should I learn before Machine Learning?`
 4. **Do not spam** the API; wait a few seconds before a second question.
 5. If you hit **rate limit** or **timeout**, wait several minutes and retry.
 6. Confirm citations show **source**, **page** (when available), and **authority** labels.

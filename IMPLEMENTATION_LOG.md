@@ -479,3 +479,58 @@ Begin Phase 1 implementation only after the first feature task is chosen.
 Do not skip the workflow/log docs before editing Python or UI code.
 
 ---
+
+## 2026-05-13 - Phase 4A fix — English runtime + study-path retrieval
+
+### Context
+Manual live smoke test: Groq answered successfully but output was Vietnamese-first and retrieval surfaced mostly irrelevant Berkeley scheduling/policy chunks for an ML prerequisites-style question.
+
+### Files touched
+- `src/campusai/rag/prompts.py`
+- `src/campusai/rag/answer_chain.py`
+- `src/campusai/rag/retriever.py`
+- `src/campusai/rag/citations.py`
+- `src/campusai/services/groq_client.py`
+- `src/campusai/app.py`
+- `README.md`
+- `DEMO_SCRIPT.md`
+- `IMPLEMENTATION_LOG.md`
+- `tests/test_retriever.py`
+- `tests/test_answer_chain.py`
+- `tests/test_citations.py`
+- `tests/test_language_runtime.py`
+
+### Commands run
+```bash
+python -m pytest tests/ -q
+python -m compileall src tests -q
+python -m campusai.index_documents
+python -c "import campusai.app; print('app import ok')"
+```
+
+### Result
+All tests passed (40). Compile and app import succeeded. Indexing succeeded against current `data/raw` PDFs. No live Groq call in automation.
+
+### Error messages
+None.
+
+### Root cause
+- **Language:** `SYSTEM_PROMPT` and several fallbacks were Vietnamese-first, so the model followed that default even for English questions.
+- **Retrieval:** Pure top-k vector similarity favored dense Berkeley guide/policy chunks over the shorter local advisor markdown for study-order questions; no intent-aware reranking.
+
+### Fix applied
+- English default system and user prompt scaffolding; explicit rule to use another language only when the user asks.
+- English runtime strings in `answer_chain`, `groq_client`, `citations`, and Streamlit placeholder.
+- Lightweight study-path / ML-prep intent detection: widened fetch + post-retrieval rerank that boosts chunks whose paths match `campusai_local_advisor_rules` / `documents/local` and heuristic authority, without changing behavior for generic catalog/policy queries.
+- Prompt **retrieval note** when study-path intent fires but no local advisor chunk appears in the retrieved set, to discourage confident answers from unrelated snippets.
+- Tests for intent, rerank ordering, English system prompt, missing-key message, and a diacritic scan over `rag/*.py` + `groq_client.py`.
+
+### Verification
+pytest, compileall, `campusai.index_documents`, `import campusai.app`.
+
+### Next step
+Phase 4A audit re-run (manual smoke with `What should I learn before Machine Learning?`) and watch citations favor local advisor rules when indexed.
+
+### Do not repeat
+Keep project-facing text English by default; smoke-test retrieval with the English ML study-path question and expect local heuristic chunks to rank above unrelated Berkeley scheduling text when that file is in the index.
+
