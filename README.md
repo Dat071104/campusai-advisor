@@ -105,6 +105,22 @@ data/vector_db/
 sample_docs/
 ```
 
+## Public Dataset Adapter
+
+Phase 2.5 adds a public, verifiable dataset adapter layer that fetches or prepares:
+
+- MIT FireRoad public course and requirement data
+- UC Berkeley CS Guide HTML/PDF sources
+- Local heuristic advisor rules for study-path context
+
+Run the fetch command when you want to stage the public dataset files:
+
+```bash
+python -m campusai.fetch_public_dataset
+```
+
+The command writes a source manifest to `data/processed/source_manifest.json` and stores raw MIT FireRoad JSON under `data/raw/api/mit_fireroad/`. If a live fetch fails, the command preserves the failure gracefully and may leave manual download steps for the Berkeley source.
+
 ## Next Phase
 
 Phase 2 audit should verify the ingestion/indexing pipeline. After that, the next implementation step is retrieval, citation formatting, and Groq-backed answer generation.

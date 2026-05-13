@@ -95,6 +95,94 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-05-13 00:00 - Phase 2.5 / Public dataset adapter
+
+### Context
+Added a public dataset adapter layer for MIT FireRoad, Berkeley CS Guide, and local heuristic advisor rules without calling Groq or creating real secrets.
+
+### Files touched
+- src/campusai/datasets/__init__.py
+- src/campusai/datasets/fireroad.py
+- src/campusai/datasets/berkeley.py
+- src/campusai/datasets/local_rules.py
+- src/campusai/fetch_public_dataset.py
+- data/raw/documents/local/campusai_local_advisor_rules.md
+- tests/test_public_dataset.py
+- README.md
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+Read AGENTS.md, PROJECT_RULES.md, PROJECT_CONTEXT.md, DEVELOPMENT_WORKFLOW.md, IMPLEMENTATION_LOG.md, and MODEL_ROUTING_GUIDE.md
+```
+
+### Result
+Dataset adapter scaffolding and a CLI entrypoint were added. The local heuristic rules file now exists in the expected raw-documents location. The implementation is intentionally safe: it does not call Groq, does not create `.env`, and handles live HTTP failures gracefully.
+
+### Error messages
+None yet.
+
+### Root cause
+This was the next phase increment after the document ingestion/indexing pipeline.
+
+### Fix applied
+Created modular dataset adapters, a fetch CLI, a manifest writer, a local heuristic rules document, and tests for manifest shape, FireRoad markdown conversion, and local rules existence.
+
+### Verification
+Pending. The next step is to run pytest, compileall, and the dataset fetch command.
+
+### Next step
+Run the safe verification commands and note whether live network fetch succeeds or requires manual fallback.
+
+### Do not repeat
+Do not add real secrets, do not call Groq, and do not expand into answer generation yet.
+
+---
+
+## 2026-05-13 00:30 - Phase 2.5 recovery / Dataset fetch hang
+
+### Context
+The Phase 2.5 dataset fetch command previously hung while running `python -m campusai.fetch_public_dataset`. Pytest and compileall had already passed before the hang, so this recovery continued from the existing partial implementation instead of restarting the phase.
+
+### Files touched
+- src/campusai/fetch_public_dataset.py
+- src/campusai/datasets/fireroad.py
+- src/campusai/datasets/berkeley.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+python -m pytest
+python -m compileall src tests
+python -m campusai.fetch_public_dataset --timeout 20 --max-courses 100
+```
+
+### Result
+The live dataset fetch command completed cleanly. It generated or reused local advisor rules, fetched MIT FireRoad catalog and selected requirements, downloaded Berkeley CS Guide HTML/PDF, and wrote the manifest.
+
+### Error messages
+None during verification after the fix.
+
+### Root cause
+The CLI did not expose recovery controls for bounded public fetches, and progress was only printed after all fetches finished. Even though adapter methods had timeout parameters, the entrypoint did not make timeout behavior visible/configurable and a slow public endpoint could appear to hang without showing which source was in progress.
+
+### Fix applied
+Added CLI options `--timeout`, `--skip-network`, and `--max-courses`; added progress output before every public fetch; preserved local advisor rules generation independently from network fetches; reported individual fetch failures/timeouts without failing the whole phase; and limited saved MIT FireRoad catalog data when `--max-courses` is provided.
+
+### Verification
+- `python -m pytest` passed: 8 tests.
+- `python -m compileall src tests` passed.
+- `python -m campusai.fetch_public_dataset --timeout 20 --max-courses 100` exited with status 0.
+
+### Remaining limitations
+Network success still depends on public endpoint availability and response speed. The command now exits cleanly on per-request timeout/failure and supports `--skip-network` for offline/local-only manifest generation, but it does not guarantee public datasets are fresh when endpoints are unavailable.
+
+### Do not repeat
+Do not call Groq, do not create `.env`, do not add real secrets, do not modify `scripts/scan_deps.py`, and do not implement RAG answer generation in this phase.
+
+---
+
+
 ## 2026-05-12 22:44 - Phase 2 / Document ingestion and local indexing
 
 ### Context
