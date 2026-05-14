@@ -95,6 +95,44 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-05-14 00:00 - Phase 5A / Streamlit Cloud dependency resolution
+
+### Context
+Streamlit Community Cloud failed during dependency installation. The deploy log showed Streamlit cloning the repo and then processing dependencies with Poetry, which failed because it tried to install the project as `campusai-advisor` even though the import package is `campusai` under `src/`.
+
+### Files touched
+- requirements.txt
+- streamlit_app.py
+- README.md
+- docs/DEPLOYMENT.md
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+# pending verification commands in this session
+```
+
+### Result
+Root-level pip/uv packaging path was added for Streamlit Cloud, along with a stable root entrypoint.
+
+### Error messages
+`The current project could not be installed: No file/folder found for package campusai-advisor`
+
+### Root cause
+Streamlit Community Cloud interpreted `pyproject.toml` as Poetry metadata because there was no higher-priority root `requirements.txt`. Poetry then tried to install the project package name instead of the actual import package layout under `src/`.
+
+### Fix applied
+Added a root `requirements.txt` with `-e .` plus the runtime dependencies, and added a root `streamlit_app.py` that imports and runs `campusai.app.main`. Updated deployment docs and README to point Streamlit Cloud at the new entrypoint and to note that `requirements.txt` intentionally exists so Cloud uses pip/uv instead of Poetry.
+
+### Verification
+Pending. Run editable install, requirements install, import smoke, pytest, compileall, and debug retrieval. No Groq calls allowed.
+
+### Next step
+Confirm local install and smoke checks pass, then hand off for Phase 5A audit.
+
+### Do not repeat
+Do not convert the project to Poetry, do not add `tool.poetry`, do not remove `pyproject.toml`, and do not commit secrets.
+
 ## 2026-05-13 14:00 - Phase 4 / UI polish, demo script, deployment docs
 
 ### Context

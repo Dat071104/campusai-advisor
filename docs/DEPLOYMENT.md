@@ -19,14 +19,14 @@ This MVP is a **single Streamlit app**. There is **no** Docker, Kubernetes, Redi
 Main file:
 
 ```text
-src/campusai/app.py
+streamlit_app.py
 ```
 
-In Community Cloud, set the main file path to this path relative to the repository root.
+In Community Cloud, set the main file path to this file relative to the repository root.
 
 ## 4. Dependencies
 
-Dependencies are declared in **`pyproject.toml`**. Community Cloud installs from your repository’s dependency file when you connect the repo.
+Cloud installs should use the root `requirements.txt` so Streamlit Community Cloud uses pip/uv instead of treating `pyproject.toml` as Poetry metadata.
 
 Local editable install (development):
 
@@ -34,7 +34,7 @@ Local editable install (development):
 python -m pip install -e ".[dev]"
 ```
 
-For Cloud, ensure `pyproject.toml` lists all runtime packages the app imports (`streamlit`, `chromadb`, `fastembed`, `pymupdf`, `openai`, `python-dotenv`, etc.).
+Runtime packages needed by the app are listed in both `pyproject.toml` and `requirements.txt` (`streamlit`, `chromadb`, `fastembed`, `pymupdf`, `openai`, `python-dotenv`, etc.).
 
 ## 5. Secrets on Community Cloud (not `.env` in git)
 

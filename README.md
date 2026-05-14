@@ -127,6 +127,7 @@ Scripted flows: **`DEMO_SCRIPT.md`**.
 - **No invented policies**: if retrieval is empty, the chain returns a **no-evidence** style message.
 - **Single Groq key** by design — no backup key rotation (rate-limit discipline).
 - **Streamlit Community Cloud**: vector persistence may be **ephemeral**; first embedding model load can be **slow**; public HTTP sources may be **down** — see **`docs/DEPLOYMENT.md`**.
+- Cloud packaging uses the root `requirements.txt` so Streamlit Community Cloud installs with pip/uv instead of treating `pyproject.toml` as Poetry metadata.
 
 ## 12. Future improvements (V2+)
 
