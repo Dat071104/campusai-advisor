@@ -7,7 +7,7 @@ import argparse
 from campusai.ingestion.indexer import index_local_documents
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Index PDF, Markdown, and .txt files under RAW_DATA_DIR.")
     parser.add_argument(
         "--reset",
@@ -16,13 +16,19 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    result = index_local_documents(reset=args.reset)
+    try:
+        result = index_local_documents(reset=args.reset)
+    except RuntimeError as exc:
+        print(f"Indexing failed: {exc}")
+        return 1
+
     print(result.message)
     if result.skipped_files:
         print("Skipped files:")
         for path in result.skipped_files:
             print(f"- {path}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

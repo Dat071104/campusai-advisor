@@ -1,10 +1,11 @@
 from dataclasses import replace
 from pathlib import Path
 
+from campusai.app import _build_demo_index
 from campusai.config import get_settings
 from campusai.ingestion.indexer import index_local_documents
 from campusai.ingestion.pdf_loader import DocumentPage
-from campusai.rag.vector_store import ChromaVectorStore
+from campusai.rag.vector_store import ChromaVectorStore, wait_for_chroma_index_ready
 
 
 class FakeEmbeddingModel:
@@ -129,3 +130,60 @@ def test_index_local_documents_reset_clears_chroma_before_reupsert(tmp_path):
     assert n2 == r2.chunks_indexed
     assert n1 > 0
     assert n2 < n1 + r2.chunks_indexed
+
+
+def test_wait_for_chroma_index_ready_detects_fresh_collection(tmp_path):
+    md = tmp_path / "note.md"
+    md.write_text("Statistics before Machine Learning. " * 8, encoding="utf-8")
+    vdir = tmp_path / "vdb"
+    settings = replace(
+        get_settings(),
+        raw_data_path=str(tmp_path),
+        vector_store_path=str(vdir),
+        chroma_collection="ready_check_test",
+        chunk_size=80,
+        chunk_overlap=10,
+    )
+    store = ChromaVectorStore(str(vdir), settings.chroma_collection)
+
+    result = index_local_documents(settings, reset=True, embedding_model=FakeEmbeddingModel(), vector_store=store)
+
+    assert result.chunks_indexed > 0
+    assert wait_for_chroma_index_ready(
+        settings.vector_store_path,
+        settings.chroma_collection,
+        expected_min_chunks=result.chunks_indexed,
+    ) is True
+
+
+def test_build_demo_index_returns_success_message_for_indexable_files(tmp_path):
+    md = tmp_path / "campusai_local_advisor_rules.md"
+    md.write_text("Calculus and Python before Machine Learning. " * 6, encoding="utf-8")
+    settings = replace(
+        get_settings(),
+        raw_data_path=str(tmp_path),
+        vector_store_path=str(tmp_path / "vector_db"),
+        chroma_collection="demo_index_success",
+        chunk_size=80,
+        chunk_overlap=10,
+    )
+
+    ok, message = _build_demo_index(settings)
+
+    assert ok is True
+    assert message == "Demo index built successfully."
+
+
+def test_build_demo_index_returns_safe_failure_message_when_nothing_is_indexed(tmp_path):
+    settings = replace(
+        get_settings(),
+        raw_data_path=str(tmp_path),
+        vector_store_path=str(tmp_path / "vector_db"),
+        chroma_collection="demo_index_failure",
+    )
+
+    ok, message = _build_demo_index(settings)
+
+    assert ok is False
+    assert message.startswith("Failed to build index: ")
+    assert str(tmp_path) in message

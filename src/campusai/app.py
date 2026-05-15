@@ -9,6 +9,7 @@ from pathlib import Path
 import streamlit as st
 
 from campusai.config import Settings, get_settings
+from campusai.ingestion.indexer import index_local_documents
 from campusai.rag.answer_chain import RAGAnswerChain
 from campusai.rag.retriever import index_exists
 
@@ -63,7 +64,19 @@ def render_profile_sidebar() -> dict[str, str]:
     return profile
 
 
-def render_document_sidebar() -> None:
+def _build_demo_index(settings: Settings) -> tuple[bool, str]:
+    """Build or refresh the packaged demo index without invoking Groq."""
+    try:
+        result = index_local_documents(settings=settings, reset=True)
+    except Exception as exc:
+        return False, f"Failed to build index: {exc}"
+
+    if result.chunks_indexed <= 0:
+        return False, f"Failed to build index: {result.message}"
+    return True, "Demo index built successfully."
+
+
+def render_document_sidebar(has_index: bool) -> bool:
     st.sidebar.header("Documents & indexing")
     settings = get_settings()
     uploaded_files = st.sidebar.file_uploader(
@@ -74,15 +87,32 @@ def render_document_sidebar() -> None:
     st.sidebar.button(
         "Index uploaded documents",
         disabled=True,
-        help="MVP indexes PDF, Markdown, and .txt files from disk under data/raw. Run: python -m campusai.index_documents",
+        help="MVP indexes PDF, Markdown, and .txt files from disk under data/raw. Upload indexing is still staged.",
     )
-    st.sidebar.caption(f"CLI reads PDFs from: `{settings.raw_data_path}`")
+
+    action_label = "Refresh demo index" if has_index else "Build demo index"
+    if st.sidebar.button(
+        action_label,
+        help="Build or refresh the demo vector index from files already stored under data/raw.",
+    ):
+        with st.sidebar:
+            with st.spinner("Building demo index..."):
+                success, message = _build_demo_index(settings)
+        if success:
+            st.sidebar.success(message)
+            st.session_state.demo_index_refresh_token = time.time()
+            st.rerun()
+        st.sidebar.error(message)
+
+    st.sidebar.caption(f"Indexed source folder: `{settings.raw_data_path}`")
     if uploaded_files:
         st.sidebar.warning(
-            "Upload UI is staged only. For this MVP, copy files into `data/raw` and run the index CLI."
+            "Upload UI is staged only. For this MVP, copy files into `data/raw`; uploaded-file indexing behavior is unchanged."
         )
     else:
         st.sidebar.caption("No files selected.")
+
+    return index_exists(settings)
 
 
 def render_status(settings: Settings, has_index: bool, manifest_exists: bool, manifest_count: int) -> None:
@@ -284,7 +314,7 @@ def main() -> None:
     st.divider()
 
     student_profile = render_profile_sidebar()
-    render_document_sidebar()
+    has_index = render_document_sidebar(has_index)
     render_status(settings, has_index, manifest_exists, manifest_count)
 
     render_chat(student_profile=student_profile, has_index=has_index)

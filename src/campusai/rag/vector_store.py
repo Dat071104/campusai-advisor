@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -52,3 +53,40 @@ class ChromaVectorStore:
             embeddings=embeddings,
         )
         return len(chunks)
+
+
+def wait_for_chroma_index_ready(
+    persist_path: str,
+    collection_name: str,
+    *,
+    expected_min_chunks: int = 1,
+    attempts: int = 5,
+    sleep_seconds: float = 0.2,
+) -> bool:
+    """Confirm the collection is readable by a fresh Chroma client.
+
+    Uses a short bounded retry because file persistence can be visible a moment
+    after upsert returns, especially right after reset/recreate flows.
+    """
+
+    try:
+        import chromadb
+    except ImportError as exc:
+        raise RuntimeError("chromadb is required for the local vector store.") from exc
+
+    if expected_min_chunks <= 0:
+        return True
+
+    last_count = 0
+    for attempt in range(attempts):
+        try:
+            client = chromadb.PersistentClient(path=persist_path)
+            collection = client.get_or_create_collection(name=collection_name)
+            last_count = int(collection.count())
+            if last_count >= expected_min_chunks:
+                return True
+        except Exception:
+            last_count = 0
+        if attempt < attempts - 1:
+            time.sleep(sleep_seconds)
+    return False
