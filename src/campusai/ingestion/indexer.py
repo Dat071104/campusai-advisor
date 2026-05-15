@@ -11,7 +11,7 @@ from campusai.ingestion.chunker import chunk_pages
 from campusai.ingestion.pdf_loader import DocumentPage, find_pdf_files, load_pdf_pages
 from campusai.ingestion.text_loader import find_markdown_and_text_files, load_text_document_pages
 from campusai.rag.embeddings import EmbeddingModel, FastEmbedEmbeddingModel
-from campusai.rag.vector_store import ChromaVectorStore, VectorStore
+from campusai.rag.vector_store import ChromaVectorStore, VectorStore, wait_for_chroma_index_ready
 
 
 PageLoader = Callable[[Path], list[DocumentPage]]
@@ -108,6 +108,17 @@ def index_local_documents(
 
     embeddings = embedding_model.embed([chunk.text for chunk in chunks])
     indexed_count = vector_store.upsert_chunks(chunks, embeddings)
+
+    if reset and isinstance(vector_store, ChromaVectorStore):
+        if not wait_for_chroma_index_ready(
+            settings.vector_store_path,
+            settings.chroma_collection,
+            expected_min_chunks=indexed_count,
+        ):
+            raise RuntimeError(
+                f"Indexed {indexed_count} chunks, but the Chroma index was not readable after write. "
+                f"Run index_documents again or inspect {settings.vector_store_path}."
+            )
 
     return IndexingResult(
         raw_data_dir=str(raw_data_dir),
