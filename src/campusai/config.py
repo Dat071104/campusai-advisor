@@ -35,10 +35,15 @@ class Settings:
     groq_max_retries: int
     groq_max_tokens: int
     rag_top_k: int
+    campusai_api_base_url: str = ""
 
     @property
     def has_groq_key(self) -> bool:
         return bool(self.groq_api_key)
+
+    @property
+    def campusai_api_enabled(self) -> bool:
+        return bool(self.campusai_api_base_url.strip())
 
 
 @lru_cache(maxsize=1)
@@ -65,4 +70,5 @@ def get_settings() -> Settings:
         groq_max_retries=int(_env("GROQ_MAX_RETRIES", "2")),
         groq_max_tokens=int(_env("GROQ_MAX_TOKENS", "900")),
         rag_top_k=int(_env("RAG_TOP_K", "5")),
+        campusai_api_base_url=_env("CAMPUSAI_API_BASE_URL", ""),
     )

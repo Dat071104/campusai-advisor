@@ -12,3 +12,4 @@ def test_settings_defaults_load(monkeypatch):
     assert settings.groq_base_url == "https://api.groq.com/openai/v1"
     assert settings.embedding_provider == "fastembed"
     assert settings.has_groq_key is False
+    assert settings.campusai_api_enabled is False

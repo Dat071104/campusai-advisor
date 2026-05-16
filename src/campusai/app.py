@@ -12,6 +12,7 @@ from campusai.config import Settings, get_settings
 from campusai.ingestion.indexer import index_local_documents
 from campusai.rag.answer_chain import RAGAnswerChain
 from campusai.rag.retriever import index_exists
+from campusai.services.api_client import APIClientError, CampusAIAPIClient
 
 MANIFEST_PATH = Path("data/processed/source_manifest.json")
 
@@ -76,7 +77,7 @@ def _build_demo_index(settings: Settings) -> tuple[bool, str]:
     return True, "Demo index built successfully."
 
 
-def render_document_sidebar(has_index: bool) -> bool:
+def render_document_sidebar(has_index: bool, *, api_mode: bool) -> bool:
     st.sidebar.header("Documents & indexing")
     settings = get_settings()
     uploaded_files = st.sidebar.file_uploader(
@@ -91,7 +92,9 @@ def render_document_sidebar(has_index: bool) -> bool:
     )
 
     action_label = "Refresh demo index" if has_index else "Build demo index"
-    if st.sidebar.button(
+    if api_mode:
+        st.sidebar.info("API mode is enabled. Indexing is handled by the backend or a local deployment.")
+    elif st.sidebar.button(
         action_label,
         help="Build or refresh the demo vector index from files already stored under data/raw.",
     ):
@@ -115,8 +118,14 @@ def render_document_sidebar(has_index: bool) -> bool:
     return index_exists(settings)
 
 
-def render_status(settings: Settings, has_index: bool, manifest_exists: bool, manifest_count: int) -> None:
+def render_status(settings: Settings, has_index: bool, manifest_exists: bool, manifest_count: int, *, api_mode: bool) -> None:
     st.sidebar.header("System status")
+    if api_mode:
+        safe_base = settings.campusai_api_base_url.rstrip("/")
+        st.sidebar.success(f"Runtime mode: FastAPI backend")
+        st.sidebar.caption(f"Backend: `{safe_base}`")
+    else:
+        st.sidebar.success("Runtime mode: Local RAG")
     if has_index:
         st.sidebar.success("Vector index: embedded chunks detected.")
     else:
@@ -205,18 +214,21 @@ def render_citations(result) -> None:
                     st.caption(f"Distance: {citation.distance:.4f}")
 
 
-def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
+def render_chat(student_profile: dict[str, str], has_index: bool, *, api_mode: bool) -> None:
     settings = get_settings()
     st.subheader("Question & answer")
-    st.caption(
-        "Submit a single question. The app retrieves top chunks, builds citations, then calls Groq only for that request."
-    )
+    if api_mode:
+        st.caption("Submit a single question. Streamlit forwards the request to the FastAPI backend.")
+    else:
+        st.caption(
+            "Submit a single question. The app retrieves top chunks, builds citations, then calls Groq only for that request."
+        )
 
-    if not has_index:
+    if not has_index and not api_mode:
         st.error(
             "**No index found.** Add PDFs, Markdown, or .txt files to `data/raw`, run `python -m campusai.index_documents`, then refresh this page."
         )
-    if not settings.has_groq_key:
+    if not settings.has_groq_key and not api_mode:
         st.warning(
             "**No Groq key configured.** Retrieval can still run, but full LLM answers need `GROQ_API_KEY` "
             "(local `.env` or deployment secrets)."
@@ -246,7 +258,7 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
     if submitted:
         now = time.monotonic()
         wait_remaining = settings.groq_min_seconds_between_requests - (now - st.session_state.last_groq_submit_at)
-        if wait_remaining > 0:
+        if wait_remaining > 0 and not api_mode:
             st.info(
                 f"**Please wait {wait_remaining:.1f}s** before another live Groq request "
                 "(rate-limit / free-tier safeguard)."
@@ -258,12 +270,24 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
             else:
                 st.session_state.request_running = True
                 with st.spinner("Retrieving chunks and generating an answer…"):
-                    chain = RAGAnswerChain(settings=settings)
-                    result = chain.answer_question(question, student_profile)
-                    st.session_state.last_result = result
-                    st.session_state.last_question = question
-                    if result.used_live_api:
-                        st.session_state.last_groq_submit_at = time.monotonic()
+                    if api_mode:
+                        api_client = CampusAIAPIClient(settings.campusai_api_base_url, timeout_seconds=settings.groq_timeout_seconds)
+                        try:
+                            result = api_client.ask(question, language="English")
+                        except APIClientError as exc:
+                            result = None
+                            st.session_state.last_result = None
+                            st.error(str(exc))
+                        else:
+                            st.session_state.last_result = result
+                            st.session_state.last_question = question
+                    else:
+                        chain = RAGAnswerChain(settings=settings)
+                        result = chain.answer_question(question, student_profile)
+                        st.session_state.last_result = result
+                        st.session_state.last_question = question
+                        if result.used_live_api:
+                            st.session_state.last_groq_submit_at = time.monotonic()
                 st.session_state.request_running = False
 
     result = st.session_state.last_result
@@ -300,6 +324,7 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
 def main() -> None:
     st.set_page_config(page_title="CampusAI Advisor", layout="wide", initial_sidebar_state="expanded")
     settings = get_settings()
+    api_mode = settings.campusai_api_enabled
     has_index = index_exists(settings)
     manifest_exists, manifest_count = _manifest_entry_count()
 
@@ -314,10 +339,10 @@ def main() -> None:
     st.divider()
 
     student_profile = render_profile_sidebar()
-    has_index = render_document_sidebar(has_index)
-    render_status(settings, has_index, manifest_exists, manifest_count)
+    has_index = render_document_sidebar(has_index, api_mode=api_mode)
+    render_status(settings, has_index, manifest_exists, manifest_count, api_mode=api_mode)
 
-    render_chat(student_profile=student_profile, has_index=has_index)
+    render_chat(student_profile=student_profile, has_index=has_index, api_mode=api_mode)
 
 
 if __name__ == "__main__":
