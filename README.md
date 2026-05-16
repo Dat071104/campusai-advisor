@@ -49,6 +49,7 @@ Optional manifest path: `data/processed/source_manifest.json` (public sources + 
 
 - **MIT FireRoad** — public structured course/requirement data (see adapter under `src/campusai/datasets/`).
 - **UC Berkeley CS Guide** — public HTML/PDF references (not your institution’s official catalog).
+- **TDTU official knowledge pack** — `data/raw/documents/tdtu/` for verified faculty, curriculum, regulation, and admission-context notes.
 - **Local heuristic advisor rules** — `data/raw/documents/local/campusai_local_advisor_rules.md`; **study guidance only**, not official policy.
 
 Run:

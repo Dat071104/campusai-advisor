@@ -103,6 +103,54 @@ def test_index_local_documents_indexes_markdown_without_pdf(tmp_path):
     assert meta0.get("is_official_policy") is False
 
 
+def test_index_local_documents_preserves_markdown_metadata_fields(tmp_path):
+    md = tmp_path / "tdtu_program.md"
+    md.write_text(
+        "\n".join(
+            [
+                "# TDTU Program",
+                "",
+                "## Metadata",
+                "",
+                "```yaml",
+                "source_authority: official_curriculum",
+                "source_type: official_faculty_info",
+                "official_policy: true",
+                "university: Ton Duc Thang University",
+                "country: Vietnam",
+                "language: Vietnamese",
+                "```",
+                "",
+                "The program has 136 credits and a major code.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    settings = replace(
+        get_settings(),
+        raw_data_path=str(tmp_path),
+        chunk_size=200,
+        chunk_overlap=20,
+    )
+    vector_store = FakeVectorStore()
+
+    result = index_local_documents(
+        settings,
+        embedding_model=FakeEmbeddingModel(),
+        vector_store=vector_store,
+    )
+
+    assert result.text_files_found == 1
+    assert result.chunks_indexed > 0
+    meta0 = vector_store.written[0].metadata
+    assert meta0.get("authority") == "official_curriculum"
+    assert meta0.get("source_type") == "official_faculty_info"
+    assert meta0.get("is_official_policy") is True
+    assert meta0.get("university") == "Ton Duc Thang University"
+    assert meta0.get("country") == "Vietnam"
+    assert meta0.get("language") == "Vietnamese"
+
+
 def test_index_local_documents_reset_clears_chroma_before_reupsert(tmp_path):
     md = tmp_path / "note.md"
     md.write_text("Probability before Machine Learning. " * 8, encoding="utf-8")

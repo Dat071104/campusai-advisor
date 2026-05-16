@@ -3,10 +3,43 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 from campusai.ingestion.pdf_loader import DocumentPage
 
 LOCAL_ADVISOR_RULES_FILENAME = "campusai_local_advisor_rules.md"
+_YAML_FENCE_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.IGNORECASE | re.DOTALL)
+
+
+def _coerce_metadata_value(value: str) -> str | bool:
+    normalized = value.strip()
+    lowered = normalized.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    return normalized
+
+
+def _parse_simple_yaml_metadata_block(text: str) -> dict[str, str | bool]:
+    match = _YAML_FENCE_RE.search(text)
+    if not match:
+        return {}
+
+    metadata: dict[str, str | bool] = {}
+    for raw_line in match.group(1).splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or line.startswith("-"):
+            continue
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        key = key.strip().lower().replace("-", "_")
+        if not key:
+            continue
+        parsed = _coerce_metadata_value(value)
+        metadata[key] = parsed
+    return metadata
 
 
 def find_markdown_and_text_files(raw_data_dir: str | Path) -> list[Path]:
@@ -25,7 +58,10 @@ def find_markdown_and_text_files(raw_data_dir: str | Path) -> list[Path]:
     return sorted(out, key=lambda p: str(p).lower())
 
 
-def _metadata_for_path(path: Path) -> tuple[str, str | None, str | None, bool | None]:
+def _metadata_for_path(
+    path: Path,
+    parsed_metadata: dict[str, str | bool],
+) -> tuple[str, str | None, str | None, bool | None, str | None, str | None, str | None]:
     suffix = path.suffix.lower()
     if suffix == ".md":
         doc_type = "markdown"
@@ -35,8 +71,34 @@ def _metadata_for_path(path: Path) -> tuple[str, str | None, str | None, bool | 
         doc_type = "text"
 
     if path.name == LOCAL_ADVISOR_RULES_FILENAME:
-        return doc_type, "heuristic", "local_advisor_rules", False
-    return doc_type, None, None, None
+        return doc_type, "heuristic", "local_advisor_rules", False, None, None, None
+
+    authority = _optional_text(parsed_metadata.get("source_authority"))
+    source_type = _optional_text(parsed_metadata.get("source_type"))
+    is_official = _optional_bool(parsed_metadata.get("official_policy"))
+    university = _optional_text(parsed_metadata.get("university"))
+    country = _optional_text(parsed_metadata.get("country"))
+    language = _optional_text(parsed_metadata.get("language"))
+    return doc_type, authority, source_type, is_official, university, country, language
+
+
+def _optional_text(value: object) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    return None
+
+
+def _optional_bool(value: object) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+    return None
 
 
 def load_text_document_pages(path: str | Path) -> list[DocumentPage]:
@@ -47,7 +109,11 @@ def load_text_document_pages(path: str | Path) -> list[DocumentPage]:
     if not text:
         return []
 
-    document_type, authority, source_type, is_official = _metadata_for_path(file_path)
+    parsed_metadata = _parse_simple_yaml_metadata_block(text)
+    document_type, authority, source_type, is_official, university, country, language = _metadata_for_path(
+        file_path,
+        parsed_metadata,
+    )
     return [
         DocumentPage(
             text=text,
@@ -58,5 +124,8 @@ def load_text_document_pages(path: str | Path) -> list[DocumentPage]:
             authority=authority,
             source_type=source_type,
             is_official_policy=is_official,
+            university=university,
+            country=country,
+            language=language,
         )
     ]

@@ -16,6 +16,9 @@ class DocumentPage:
     authority: str | None = None
     source_type: str | None = None
     is_official_policy: bool | None = None
+    university: str | None = None
+    country: str | None = None
+    language: str | None = None
 
 
 def find_pdf_files(raw_data_dir: str | Path) -> list[Path]:
