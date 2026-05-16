@@ -42,3 +42,38 @@ def test_load_plain_txt_has_document_type_text(tmp_path):
     assert page.authority is None
     assert page.source_type is None
     assert page.is_official_policy is None
+
+
+def test_load_markdown_metadata_maps_source_authority_and_simple_fields(tmp_path):
+    p = tmp_path / "tdtu_program.md"
+    p.write_text(
+        "\n".join(
+            [
+                "# TDTU Program",
+                "",
+                "## Metadata",
+                "",
+                "```yaml",
+                "source_authority: official_curriculum",
+                "source_type: official_faculty_info",
+                "official_policy: true",
+                "university: Ton Duc Thang University",
+                "country: Vietnam",
+                "language: Vietnamese",
+                "```",
+                "",
+                "Program details here.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    page = load_text_document_pages(p)[0]
+
+    assert page.document_type == "markdown"
+    assert page.authority == "official_curriculum"
+    assert page.source_type == "official_faculty_info"
+    assert page.is_official_policy is True
+    assert page.university == "Ton Duc Thang University"
+    assert page.country == "Vietnam"
+    assert page.language == "Vietnamese"

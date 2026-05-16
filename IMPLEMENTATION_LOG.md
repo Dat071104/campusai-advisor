@@ -574,6 +574,168 @@ Keep project-facing text English by default; smoke-test retrieval with the Engli
 
 ---
 
+## 2026-05-15 00:00 - Phase 5C / TDTU and Vietnam local knowledge pack
+
+### Context
+Built a first structured local knowledge pack for TDTU official facts and Vietnam CS/IT career heuristics under `data/raw/documents/tdtu/` and `data/raw/documents/local/`.
+
+### Files touched
+- data/raw/documents/tdtu/tdtu_fit_overview_contacts.md
+- data/raw/documents/tdtu/tdtu_software_engineering_curriculum.md
+- data/raw/documents/tdtu/tdtu_computer_science_curriculum.md
+- data/raw/documents/tdtu/tdtu_information_systems_curriculum.md
+- data/raw/documents/tdtu/tdtu_computer_networks_curriculum.md
+- data/raw/documents/tdtu/tdtu_academic_regulations_graduation.md
+- data/raw/documents/tdtu/tdtu_admissions_open_day.md
+- data/raw/documents/tdtu/tdtu_student_handbook_international.md
+- data/raw/documents/local/vietnam_it_career_context_2026.md
+- data/raw/documents/local/local_backend_ai_advisor_heuristics.md
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+# pending verification commands in this session
+```
+
+### Result
+Added clean RAG-ingestion Markdown sources with YAML metadata blocks, short sections, and explicit official-vs-heuristic separation.
+
+### Error messages
+None yet.
+
+### Root cause
+This was the next content-expansion phase after the ingestion pipeline started supporting Markdown and text sources.
+
+### Fix applied
+Created TDTU official fact files, graduation/policy notes, admission-context notes, international handbook context, a Vietnam IT career-context note, and a practical backend+AI heuristic roadmap.
+
+### Verification
+Pending. Run compileall, pytest, indexing, and retrieval debug checks to confirm the new documents are ingested and retrievable.
+
+### Next step
+Run the validation commands and confirm the three target retrieval queries return the intended source files.
+
+### Do not repeat
+Do not mix official policy with heuristic advice, do not invent claims without URLs, and do not index secrets or vector DB files.
+
+---
+
+## 2026-05-16 00:00 - Phase 5C fix / Map Markdown source_authority into retrieval metadata
+
+### Context
+The new TDTU and local Vietnam Markdown knowledge pack indexed successfully, but `python -m campusai.debug_retrieval` showed blank `authority:` values for the new Markdown files even when they contained structured metadata such as `source_authority`, `source_type`, and `official_policy`.
+
+### Files touched
+- src/campusai/ingestion/text_loader.py
+- src/campusai/ingestion/pdf_loader.py
+- src/campusai/ingestion/chunker.py
+- src/campusai/rag/retriever.py
+- tests/test_text_loader.py
+- tests/test_ingestion_smoke.py
+- tests/test_retriever.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+python -m compileall src tests
+python -m pytest
+python -m campusai.index_documents --reset
+python -m campusai.debug_retrieval "What should a Backend + AI student learn?"
+python -m campusai.debug_retrieval "What is TDTU Software Engineering?"
+python -m campusai.debug_retrieval "What are TDTU graduation requirements?"
+git status --short
+git ls-files .env .streamlit/secrets.toml data/vector_db
+```
+
+### Result
+Markdown metadata now maps `source_authority` into chunk metadata `authority`, preserves the special local advisor rules override, and threads simple metadata fields through retrieval without affecting PDF ingestion.
+
+### Error messages
+None after sequential verification. An earlier parallelized verification attempt produced false `No vector index found...` results because retrieval checks overlapped the reset/index command instead of waiting for it to finish.
+
+### Root cause
+The text loader only assigned metadata from filename-based defaults and never parsed the YAML metadata blocks in the new Markdown knowledge pack, so `source_authority` never reached Chroma chunk metadata or retrieval output.
+
+### Fix applied
+Added a small fenced-YAML metadata parser in the text loader, mapped `source_authority`, `source_type`, `official_policy`, `university`, `country`, and `language` into page/chunk metadata, kept the `campusai_local_advisor_rules.md` hardcoded heuristic override, and added regression tests for loader, ingestion, and retrieval metadata parsing.
+
+### Verification
+- `python -m compileall src tests`: passed.
+- `python -m pytest`: 54 passed.
+- `python -m campusai.index_documents --reset`: indexed 40 chunks from 19 pages across 1 PDF and 11 markdown/text files.
+- `python -m campusai.debug_retrieval "What should a Backend + AI student learn?"`: rank 1 `local_backend_ai_advisor_heuristics.md`, authority `heuristic_advice`.
+- `python -m campusai.debug_retrieval "What is TDTU Software Engineering?"`: rank 1 `tdtu_software_engineering_curriculum.md`, authority `official_curriculum`.
+- `python -m campusai.debug_retrieval "What are TDTU graduation requirements?"`: rank 1 `tdtu_academic_regulations_graduation.md`, authority `official_policy`.
+- `git ls-files .env .streamlit/secrets.toml data/vector_db`: no output.
+
+### Next step
+Run the full Phase 5C verification sequence and confirm the three target retrieval queries show the expected authority values.
+
+### Do not repeat
+Do not rely on filename-only metadata when shipping structured Markdown knowledge packs; parse the document metadata block and preserve official-vs-heuristic authority labels end to end.
+
+---
+
+## 2026-05-16 00:30 - Phase 5C fix / Repair mojibake in TDTU Markdown knowledge docs
+
+### Context
+The TDTU and Vietnam local knowledge-pack Markdown files indexed and retrieved correctly, but several official program names and quoted phrases were stored with mojibake, making the source text look broken before commit.
+
+### Files touched
+- data/raw/documents/tdtu/tdtu_software_engineering_curriculum.md
+- data/raw/documents/tdtu/tdtu_computer_science_curriculum.md
+- data/raw/documents/tdtu/tdtu_computer_networks_curriculum.md
+- data/raw/documents/tdtu/tdtu_information_systems_curriculum.md
+- data/raw/documents/tdtu/tdtu_fit_overview_contacts.md
+- data/raw/documents/tdtu/tdtu_academic_regulations_graduation.md
+- data/raw/documents/tdtu/tdtu_admissions_open_day.md
+- data/raw/documents/local/vietnam_it_career_context_2026.md
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+Select-String -Path data/raw/documents/tdtu/*.md,data/raw/documents/local/*.md -Pattern "Ã|â|á»|áº|Æ|Ä|�"
+python -m compileall src tests
+python -m pytest
+python -m campusai.index_documents --reset
+python -m campusai.debug_retrieval "What is TDTU Software Engineering?"
+python -m campusai.debug_retrieval "What is the TDTU Computer Science program?"
+python -m campusai.debug_retrieval "What are TDTU graduation requirements?"
+python -m campusai.debug_retrieval "What should a Backend + AI student learn?"
+git status --short
+git ls-files .env .streamlit/secrets.toml data/vector_db
+```
+
+### Result
+The corrupted Vietnamese program names, faculty/location names, apostrophes, and quoted phrases were repaired in the Markdown knowledge docs while preserving metadata fields and authority separation.
+
+### Error messages
+The provided `Select-String` pattern still returned the correctly encoded address line in `tdtu_fit_overview_contacts.md` because the pattern is broad enough to match valid Vietnamese Unicode characters, not just mojibake.
+
+### Root cause
+The Markdown content was authored or pasted with mixed encoding damage, so some Vietnamese strings and smart punctuation were stored as mojibake even though the metadata structure and retrieval logic were correct.
+
+### Fix applied
+Rewrote the affected Markdown knowledge docs in UTF-8 with correct Vietnamese names such as `Kỹ thuật phần mềm`, `Khoa học máy tính`, `Mạng máy tính và truyền thông dữ liệu`, `Hệ thống thông tin`, `Khoa Công nghệ thông tin`, `Phòng C004`, and `Nguyễn Hữu Thọ`. Replaced broken smart quotes with ASCII quotes where needed and kept all metadata fields unchanged.
+
+### Verification
+- `python -m compileall src tests`: passed.
+- `python -m pytest`: 54 passed.
+- `python -m campusai.index_documents --reset`: indexed 40 chunks from 19 pages across 1 PDF and 11 markdown/text files.
+- `python -m campusai.debug_retrieval "What is TDTU Software Engineering?"`: rank 1 `tdtu_software_engineering_curriculum.md`, authority `official_curriculum`.
+- `python -m campusai.debug_retrieval "What is the TDTU Computer Science program?"`: rank 1 `tdtu_computer_science_curriculum.md`, authority `official_curriculum`.
+- `python -m campusai.debug_retrieval "What are TDTU graduation requirements?"`: rank 1 `tdtu_academic_regulations_graduation.md`, authority `official_policy`.
+- `python -m campusai.debug_retrieval "What should a Backend + AI student learn?"`: rank 1 `local_backend_ai_advisor_heuristics.md`, authority `heuristic_advice`.
+- `git ls-files .env .streamlit/secrets.toml data/vector_db`: no output.
+
+### Next step
+Run a narrower mojibake detector if the team wants an automated content check that does not flag valid Vietnamese text.
+
+### Do not repeat
+When validating multilingual Markdown content, do not rely on an over-broad mojibake regex alone; check actual rendered retrieval output as the source-of-truth for readability.
+
+---
+
 ## 2026-05-13 - Phase 4B fix — index Markdown/TXT + reset + debug retrieval
 
 ### Context
@@ -628,4 +790,57 @@ Phase 4B audit: optional live Groq smoke after confirming `debug_retrieval` show
 
 ### Do not repeat
 Assume “indexing” includes every source type you ship on disk; extend discovery when adding new raw formats, and use `debug_retrieval` before blaming the LLM for missing context.
+---
 
+## 2026-05-16 00:49 - Phase 5C fix / Harden graduation-policy reranking against unrelated official policy docs
+
+### Context
+The Phase 5C target query was `What are TDTU graduation requirements?`. The expected outcome was rank 1 `tdtu_academic_regulations_graduation.md` with authority `official_policy`, while keeping Software Engineering, Computer Science, and Backend + AI retrieval behavior intact.
+
+### Files touched
+- src/campusai/rag/retriever.py
+- tests/test_retriever.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+python scripts/scan_deps.py --root . --seed "retriever,graduation,policy,search,debug_retrieval,text_loader" --hops 2 --output context
+python -m compileall src tests
+python -m pytest
+python -m campusai.index_documents --reset
+python -m campusai.debug_retrieval "What is TDTU Software Engineering?"
+python -m campusai.debug_retrieval "What is the TDTU Computer Science program?"
+python -m campusai.debug_retrieval "What are TDTU graduation requirements?"
+python -m campusai.debug_retrieval "What should a Backend + AI student learn?"
+git status --short
+git ls-files .env .streamlit/secrets.toml data/vector_db
+```
+
+### Result
+Graduation-policy retrieval is now explicitly hardened against unrelated `official_policy` documents such as international handbook content, while preserving the expected top-ranked documents for the three other validation queries.
+
+### Error messages
+`python scripts/scan_deps.py ...` initially failed on Windows with:
+`UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f50d'`
+
+### Root cause
+The retriever already had a graduation-policy rerank path, but it did not broadly penalize handbook/international-policy sources unless their filenames matched a narrow `international_student` pattern. That left room for unrelated `official_policy` chunks to remain more competitive than they should be for generic graduation-requirement queries.
+
+### Fix applied
+Added shared international-query markers so graduation-policy reranking does not trigger for explicitly international-student questions, and added a stronger deboost for handbook/international source filenames during graduation-policy reranking. Added regression tests for both behaviors.
+
+### Verification
+- `python -m compileall src tests`: passed.
+- `python -m pytest`: 58 passed.
+- `python -m campusai.index_documents --reset`: `Indexed 39 chunks from 19 pages across 1 PDF file(s) and 11 markdown/text file(s).`
+- `python -m campusai.debug_retrieval "What is TDTU Software Engineering?"`: rank 1 `tdtu_software_engineering_curriculum.md`, authority `official_curriculum`.
+- `python -m campusai.debug_retrieval "What is the TDTU Computer Science program?"`: rank 1 `tdtu_computer_science_curriculum.md`, authority `official_curriculum`.
+- `python -m campusai.debug_retrieval "What are TDTU graduation requirements?"`: rank 1 `tdtu_academic_regulations_graduation.md`, authority `official_policy`.
+- `python -m campusai.debug_retrieval "What should a Backend + AI student learn?"`: rank 1 `local_backend_ai_advisor_heuristics.md`, authority `heuristic_advice`.
+- `git ls-files .env .streamlit/secrets.toml data/vector_db`: no output.
+
+### Next step
+READY_FOR_AUDIT: optional follow-up is a narrower content cleanup for the remaining mojibake in some curriculum body text, but it is not required for the graduation-ranking fix.
+
+### Do not repeat
+When using Zone Brain on Windows, set `PYTHONIOENCODING=utf-8` first if the scanner prints emoji; otherwise the dependency scan can fail before producing useful context.

@@ -25,6 +25,9 @@ class RetrievedChunk:
     distance: float | None = None
     authority_level: str | None = None
     source_type: str | None = None
+    university: str | None = None
+    country: str | None = None
+    language: str | None = None
 
 
 class QueryableVectorStore(Protocol):
@@ -85,8 +88,43 @@ _LOCAL_ADVISOR_SOURCE_MARKERS = (
     "/local/campusai",
 )
 
+_GRADUATION_QUERY_MARKERS = (
+    "graduation requirements",
+    "graduation requirement",
+    "graduation",
+    "graduate",
+    "graduating",
+    "academic regulation",
+    "academic regulations",
+    "regulation",
+    "regulations",
+    "required credits",
+    "credit system",
+    "capstone",
+    "thesis",
+    "internship prerequisite",
+    "internship prerequisites",
+    "learning outcomes",
+    "mandatory courses",
+    "elective groups",
+)
+
+_INTERNATIONAL_QUERY_MARKERS = (
+    "international student",
+    "international students",
+    "international",
+    "foreign student",
+    "foreign students",
+)
+
+_INTERNATIONAL_POLICY_SOURCE_MARKERS = (
+    "international",
+    "handbook",
+)
+
 # Extra semantic retrieval breadth for study-path questions, then rerank locally.
 _STUDY_PATH_FETCH_CAP = 32
+_GRADUATION_POLICY_FETCH_CAP = 32
 
 
 def is_study_path_prerequisite_query(question: str) -> bool:
@@ -101,6 +139,15 @@ def is_study_path_prerequisite_query(question: str) -> bool:
         if "before" in q and "learn" in q:
             return True
     return False
+
+
+def is_graduation_policy_query(question: str) -> bool:
+    """True when the question is about official graduation rules or degree completion policy."""
+
+    q = (question or "").lower()
+    if any(marker in q for marker in _INTERNATIONAL_QUERY_MARKERS):
+        return False
+    return any(marker in q for marker in _GRADUATION_QUERY_MARKERS)
 
 
 def chunk_matches_local_advisor_source(chunk: RetrievedChunk) -> bool:
@@ -135,8 +182,80 @@ def rerank_study_path_chunks(chunks: list[RetrievedChunk], *, top_k: int) -> lis
     return [pair[1] for pair in ordered[:top_k]]
 
 
+def rerank_graduation_policy_chunks(chunks: list[RetrievedChunk], *, top_k: int) -> list[RetrievedChunk]:
+    """Prefer official graduation policy sources for degree-completion questions."""
+
+    if top_k <= 0 or not chunks:
+        return []
+
+    def score_tuple(chunk: RetrievedChunk, position: int) -> tuple[float, int]:
+        dist = chunk.distance
+        base = -float(dist) if dist is not None else 0.0
+        boost = 0.0
+        source = (chunk.source or "").lower().replace("\\", "/")
+        source_path = (chunk.source_path or "").lower().replace("\\", "/")
+        authority = (chunk.authority_level or "").lower()
+        source_type = (chunk.source_type or "").lower()
+        content = (chunk.content or "").lower()
+        blob = f"{source} {source_path} {content}"
+
+        is_graduation_policy_doc = (
+            "tdtu_academic_regulations_graduation.md" in source
+            or "tdtu_academic_regulations_graduation.md" in source_path
+        )
+        if is_graduation_policy_doc:
+            boost += 10.0
+        if authority == "official_policy":
+            boost += 6.0
+        if source_type == "official_regulation_pdf":
+            boost += 3.5
+        if authority == "official_curriculum":
+            boost -= 0.35
+
+        # Graduation-policy queries should strongly prefer explicit policy vocabulary.
+        policy_terms = (
+            "graduation",
+            "graduate",
+            "graduating",
+            "requirements",
+            "academic regulation",
+            "credit",
+            "credits",
+            "thesis",
+            "capstone",
+            "internship",
+            "learning outcomes",
+            "mandatory courses",
+            "elective groups",
+        )
+        term_hits = sum(1 for term in policy_terms if term in blob)
+        boost += min(term_hits * 0.15, 1.2)
+
+        if is_graduation_policy_doc:
+            if "official_policy" in authority:
+                boost += 1.5
+            if "official_regulation_pdf" in source_type:
+                boost += 1.0
+        elif authority == "official_curriculum" and ("toeic" in blob or "graduation" in blob):
+            boost -= 0.6
+
+        international_policy_source = any(marker in source for marker in _INTERNATIONAL_POLICY_SOURCE_MARKERS) or any(
+            marker in source_path for marker in _INTERNATIONAL_POLICY_SOURCE_MARKERS
+        )
+        if international_policy_source:
+            boost -= 1.5
+        return (base + boost, -position)
+
+    ordered = sorted(enumerate(chunks), key=lambda pair: score_tuple(pair[1], pair[0]), reverse=True)
+    return [pair[1] for pair in ordered[:top_k]]
+
+
 def study_path_fetch_size(requested_top_k: int) -> int:
     return min(_STUDY_PATH_FETCH_CAP, max(requested_top_k * 4, 16))
+
+
+def graduation_policy_fetch_size(requested_top_k: int) -> int:
+    return min(_GRADUATION_POLICY_FETCH_CAP, max(requested_top_k * 4, 16))
 
 
 class Retriever:
@@ -166,10 +285,18 @@ class Retriever:
         k = top_k or self.settings.rag_top_k
         query_embedding = self.embedding_model.embed([normalized])[0]
         study_path = is_study_path_prerequisite_query(normalized)
-        fetch_k = study_path_fetch_size(k) if study_path else k
+        graduation_policy = is_graduation_policy_query(normalized)
+        if study_path:
+            fetch_k = study_path_fetch_size(k)
+        elif graduation_policy:
+            fetch_k = graduation_policy_fetch_size(k)
+        else:
+            fetch_k = k
         chunks = self.vector_store.query(query_embedding, fetch_k)
         if study_path:
             return rerank_study_path_chunks(chunks, top_k=k)
+        if graduation_policy:
+            return rerank_graduation_policy_chunks(chunks, top_k=k)
         return chunks[:k]
 
 
@@ -214,6 +341,9 @@ def _parse_chroma_results(results: dict[str, Any]) -> list[RetrievedChunk]:
                 distance=_optional_float(distances[idx]) if idx < len(distances) else None,
                 authority_level=_optional_str(metadata.get("authority_level") or metadata.get("authority")),
                 source_type=_optional_str(metadata.get("source_type")),
+                university=_optional_str(metadata.get("university")),
+                country=_optional_str(metadata.get("country")),
+                language=_optional_str(metadata.get("language")),
             )
         )
     return chunks

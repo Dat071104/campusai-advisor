@@ -22,6 +22,9 @@ class TextChunk:
     authority: str | None = None
     source_type: str | None = None
     is_official_policy: bool | None = None
+    university: str | None = None
+    country: str | None = None
+    language: str | None = None
 
     @property
     def metadata(self) -> dict[str, str | int | float | bool]:
@@ -39,6 +42,12 @@ class TextChunk:
             meta["source_type"] = self.source_type
         if self.is_official_policy is not None:
             meta["is_official_policy"] = self.is_official_policy
+        if self.university:
+            meta["university"] = self.university
+        if self.country:
+            meta["country"] = self.country
+        if self.language:
+            meta["language"] = self.language
         return meta
 
 
@@ -95,4 +104,7 @@ def _make_chunk(page: DocumentPage, text: str, chunk_index: int) -> TextChunk:
         authority=page.authority,
         source_type=page.source_type,
         is_official_policy=page.is_official_policy,
+        university=page.university,
+        country=page.country,
+        language=page.language,
     )

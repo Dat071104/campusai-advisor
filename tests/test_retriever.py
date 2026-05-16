@@ -5,7 +5,9 @@ from campusai.rag.retriever import (
     Retriever,
     RetrievedChunk,
     chunk_matches_local_advisor_source,
+    is_graduation_policy_query,
     is_study_path_prerequisite_query,
+    rerank_graduation_policy_chunks,
     rerank_study_path_chunks,
     study_path_fetch_size,
 )
@@ -200,3 +202,111 @@ def test_rerank_prefers_heuristic_authority_chunk_without_local_filename_markers
 
     assert len(chunks) == 1
     assert chunks[0].id == "local-1"
+
+
+def test_graduation_policy_query_detects_requirements_language():
+    assert is_graduation_policy_query("What are TDTU graduation requirements?") is True
+    assert is_graduation_policy_query("What is the academic regulation for graduation?") is True
+    assert is_graduation_policy_query("What are graduation requirements for international students?") is False
+    assert is_graduation_policy_query("What should a Backend + AI student learn?") is False
+
+
+def test_rerank_prefers_tdtu_graduation_policy_over_curriculum_mentions():
+    curriculum = RetrievedChunk(
+        id="curriculum-1",
+        content="TOEIC 600 is required for some advanced curriculum graduation tracks.",
+        source="tdtu_computer_science_curriculum.md",
+        source_path="data/raw/documents/tdtu/tdtu_computer_science_curriculum.md",
+        distance=0.04,
+        authority_level="official_curriculum",
+        source_type="official_faculty",
+    )
+    policy = RetrievedChunk(
+        id="policy-1",
+        content="TDTU graduation requirements include mandatory courses and required credits.",
+        source="tdtu_academic_regulations_graduation.md",
+        source_path="data/raw/documents/tdtu/tdtu_academic_regulations_graduation.md",
+        distance=0.18,
+        authority_level="official_policy",
+        source_type="official_regulation_pdf",
+    )
+    out = rerank_graduation_policy_chunks([curriculum, policy], top_k=1)
+    assert [c.id for c in out] == ["policy-1"]
+
+
+def test_rerank_graduation_policy_deprioritizes_curriculum_toeic_mentions():
+    curriculum = RetrievedChunk(
+        id="curriculum-1",
+        content="Advanced program graduation requires TOEIC 600.",
+        source="tdtu_computer_science_curriculum.md",
+        source_path="data/raw/documents/tdtu/tdtu_computer_science_curriculum.md",
+        distance=0.01,
+        authority_level="official_curriculum",
+        source_type="official_faculty",
+    )
+    policy = RetrievedChunk(
+        id="policy-1",
+        content="TDTU graduation requirements include required credits and mandatory courses.",
+        source="tdtu_academic_regulations_graduation.md",
+        source_path="data/raw/documents/tdtu/tdtu_academic_regulations_graduation.md",
+        distance=0.03,
+        authority_level="official_policy",
+        source_type="official_regulation_pdf",
+    )
+    out = rerank_graduation_policy_chunks([curriculum, policy], top_k=1)
+    assert [c.id for c in out] == ["policy-1"]
+
+
+def test_rerank_graduation_policy_deprioritizes_international_handbook_policy_doc():
+    handbook = RetrievedChunk(
+        id="handbook-1",
+        content="International student handbook guidance and support information.",
+        source="tdtu_student_handbook_international.md",
+        source_path="data/raw/documents/tdtu/tdtu_student_handbook_international.md",
+        distance=0.06,
+        authority_level="official_policy",
+        source_type="official_handbook",
+    )
+    policy = RetrievedChunk(
+        id="policy-1",
+        content="TDTU graduation requirements include required credits and mandatory courses.",
+        source="tdtu_academic_regulations_graduation.md",
+        source_path="data/raw/documents/tdtu/tdtu_academic_regulations_graduation.md",
+        distance=0.25,
+        authority_level="official_policy",
+        source_type="official_regulation_pdf",
+    )
+
+    out = rerank_graduation_policy_chunks([handbook, policy], top_k=1)
+
+    assert [c.id for c in out] == ["policy-1"]
+
+
+def test_retrieved_chunk_parses_authority_from_chroma_metadata():
+    from campusai.rag.retriever import _parse_chroma_results
+
+    results = {
+        "ids": [["chunk-1"]],
+        "documents": [["Curriculum details"]],
+        "metadatas": [[{
+            "source": "tdtu_software_engineering_curriculum.md",
+            "source_path": "data/raw/documents/tdtu/tdtu_software_engineering_curriculum.md",
+            "page_number": 1,
+            "chunk_index": 0,
+            "authority": "official_curriculum",
+            "source_type": "official_faculty_info",
+            "university": "Ton Duc Thang University",
+            "country": "Vietnam",
+            "language": "Vietnamese",
+        }]],
+        "distances": [[0.42]],
+    }
+
+    chunks = _parse_chroma_results(results)
+
+    assert len(chunks) == 1
+    assert chunks[0].authority_level == "official_curriculum"
+    assert chunks[0].source_type == "official_faculty_info"
+    assert chunks[0].university == "Ton Duc Thang University"
+    assert chunks[0].country == "Vietnam"
+    assert chunks[0].language == "Vietnamese"
