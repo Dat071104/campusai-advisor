@@ -95,6 +95,66 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-05-16 15:40 - V2.3 fix / Restore optional FastAPI backend boundary
+
+### Context
+V2.3 Docker Compose preflight expected `src/campusai/api/app.py`, `/health`, `/status`, `/debug/retrieval`, `/ask`, and Streamlit backend mode via `CAMPUSAI_API_BASE_URL`, but the branch only had the single-process Streamlit/RAG app. `Test-Path .\src\campusai\api\app.py` returned `False`.
+
+### Files touched
+- .env.example
+- README.md
+- docs/API.md
+- docs/DEPLOYMENT.md
+- pyproject.toml
+- requirements.txt
+- src/campusai/api/__init__.py
+- src/campusai/api/app.py
+- src/campusai/app.py
+- src/campusai/config.py
+- src/campusai/services/api_client.py
+- tests/test_answer_chain.py
+- tests/test_api_app.py
+- tests/test_api_client.py
+- tests/test_config.py
+- tests/test_language_runtime.py
+- tests/test_retriever.py
+
+### Commands run
+```bash
+$env:PYTHONIOENCODING='utf-8'; python scripts/scan_deps.py --root . --seed "api,fastapi,streamlit,config,rag,answer_chain,retriever,index" --hops 3 --output context
+python -m compileall src tests
+python -m pytest
+Test-Path .\src\campusai\api\app.py
+python -c "from campusai.api.app import app; print([route.path for route in app.routes if route.path in {'/health','/status','/debug/retrieval','/ask'}])"
+python -m campusai.debug_retrieval "What is TDTU Software Engineering?"
+git status --short
+```
+
+### Result
+Added the missing optional FastAPI backend and Streamlit API-client mode while preserving the default direct local Streamlit workflow when `CAMPUSAI_API_BASE_URL` is unset.
+
+### Error messages
+Zone Brain included `.venv_verify` site-packages and reported a noisy zone size of 7421 files because the virtualenv lives under the project root.
+
+### Root cause
+The V2.3 prompt described a backend architecture that was not present in the checked-in code. The repo had no `campusai.api.app`, no API routes, no `CAMPUSAI_API_BASE_URL` setting, and no Streamlit-to-backend client.
+
+### Fix applied
+Added `campusai.api.app` with `/health`, `/status`, `/status/build-index`, `/debug/retrieval`, and `/ask`; added `CampusAIBackendClient`; added `CAMPUSAI_API_BASE_URL` to settings and `.env.example`; wired Streamlit to use backend mode only when configured; added FastAPI/Uvicorn dependencies; documented API usage; and added tests for API health/status and backend response decoding.
+
+### Verification
+- `python -m compileall src tests`: passed.
+- `python -m pytest`: 61 passed.
+- `Test-Path .\src\campusai\api\app.py`: `True`.
+- API route import smoke listed `/health`, `/status`, `/debug/retrieval`, and `/ask`.
+- Retrieval smoke still ranked `tdtu_software_engineering_curriculum.md` first for `What is TDTU Software Engineering?`.
+
+### Next step
+Run the V2.3 Docker Compose preflight again, then add `Dockerfile`, `.dockerignore`, `docker-compose.yml`, and Docker beginner docs if the preflight stays green.
+
+### Do not repeat
+Do not assume an architecture exists because docs or prompts describe it; verify files and import paths first. Keep `CAMPUSAI_API_BASE_URL` unset for Streamlit Cloud and normal local single-process runs.
+
 ## 2026-05-14 00:00 - Phase 5A / Streamlit Cloud dependency resolution
 
 ### Context

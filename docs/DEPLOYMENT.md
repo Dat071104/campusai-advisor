@@ -1,6 +1,6 @@
 # Deployment — Streamlit Community Cloud (CampusAI Advisor)
 
-This MVP is a **single Streamlit app**. There is **no** Docker, Kubernetes, Redis, Celery, or database layer in scope.
+The default deployment is a **single Streamlit app**. Optional local FastAPI backend mode exists for V2/local multi-service work, but Streamlit Community Cloud should keep using the root `streamlit_app.py` entrypoint without Docker.
 
 ## 1. GitHub repository requirement
 
@@ -57,6 +57,8 @@ GROQ_API_KEY = "your_key_here"
 | **Streamlit Cloud** | **Secrets** UI / environment provided by the platform |
 
 Same variable names; different storage. Never print secrets in logs or UI.
+
+For Streamlit Community Cloud, leave `CAMPUSAI_API_BASE_URL` unset unless you have deployed a separate backend. The normal Cloud path runs direct in-process RAG from Streamlit.
 
 ## 7. Recommended Python version
 

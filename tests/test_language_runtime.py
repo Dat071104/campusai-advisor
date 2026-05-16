@@ -57,6 +57,7 @@ def test_groq_missing_key_message_is_english() -> None:
         groq_max_retries=2,
         groq_max_tokens=900,
         rag_top_k=5,
+        campusai_api_base_url=None,
     )
     client = GroqChatClient(settings)
     response = client.generate("test prompt", system_prompt="You are a test assistant.")

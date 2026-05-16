@@ -53,6 +53,7 @@ def make_settings(api_key=None, retries=2):
         groq_max_retries=retries,
         groq_max_tokens=900,
         rag_top_k=5,
+        campusai_api_base_url=None,
     )
 
 

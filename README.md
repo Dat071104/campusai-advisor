@@ -11,6 +11,7 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 ## 3. Features
 
 - Streamlit UI with **student profile** context, **dataset/index status**, and **citation cards** (source, page, authority; chunk id in a collapsed technical section).
+- Optional **FastAPI backend mode** for local multi-service runs; set `CAMPUSAI_API_BASE_URL` so Streamlit calls the backend instead of direct in-process RAG.
 - **CLI indexing** of **PDF**, **Markdown (`.md`)**, and **plain text (`.txt`)** files discovered recursively under `data/raw/` into a persistent local vector store (gitignored).
 - **Public dataset adapter** (MIT FireRoad, Berkeley CS guide references, local heuristic rules) via `python -m campusai.fetch_public_dataset` and `data/processed/source_manifest.json`.
 - **Groq** OpenAI-compatible client with **timeouts**, **retries**, **max tokens**, and **minimum spacing** between live requests.
@@ -27,6 +28,7 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 | PDF | PyMuPDF |
 | LLM | Groq (OpenAI-compatible client) |
 | Config | `python-dotenv` |
+| Optional API | FastAPI + Uvicorn |
 | Tests | pytest |
 
 ## 5. Architecture
@@ -87,6 +89,7 @@ See **`.env.example`** for placeholders. Important keys:
 | `EMBEDDING_MODEL`, `EMBEDDING_DIM` | FastEmbed model |
 | `GROQ_TIMEOUT_SECONDS`, `GROQ_MIN_SECONDS_BETWEEN_REQUESTS`, `GROQ_MAX_RETRIES`, `GROQ_MAX_TOKENS` | Safety defaults |
 | `RAG_TOP_K` | Retrieval breadth |
+| `CAMPUSAI_API_BASE_URL` | Optional backend URL for Streamlit-to-FastAPI mode; leave unset for normal local/Cloud Streamlit |
 
 ## 9. Run commands
 
@@ -99,6 +102,14 @@ python -m campusai.index_documents --reset
 python -m campusai.debug_retrieval "What should I learn before Machine Learning?"
 streamlit run src/campusai/app.py
 ```
+
+Optional FastAPI backend mode:
+
+```bash
+python -m uvicorn campusai.api.app:app --host 0.0.0.0 --port 8000
+```
+
+Then set `CAMPUSAI_API_BASE_URL=http://localhost:8000` for Streamlit. See `docs/API.md`.
 
 Verify (no Groq calls):
 
@@ -163,6 +174,7 @@ Scripted flows: **`DEMO_SCRIPT.md`**.
 |------|---------|
 | `DEMO_SCRIPT.md` | 2- and 5-minute demo, interview lines, limitations |
 | `docs/DEPLOYMENT.md` | Streamlit Community Cloud, secrets, indexing caveats |
+| `docs/API.md` | Optional FastAPI backend endpoints and backend-mode env var |
 | `docs/PORTFOLIO_WRITEUP.md` | Short portfolio blurb |
 | `IMPLEMENTATION_LOG.md` | Session history and decisions |
 
