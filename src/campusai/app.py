@@ -12,8 +12,18 @@ from campusai.config import Settings, get_settings
 from campusai.ingestion.indexer import index_local_documents
 from campusai.rag.answer_chain import RAGAnswerChain
 from campusai.rag.retriever import index_exists
+from campusai.services.api_client import BackendStatus, CampusAIBackendClient
 
 MANIFEST_PATH = Path("data/processed/source_manifest.json")
+
+
+def _backend_client(settings: Settings) -> CampusAIBackendClient | None:
+    if not settings.campusai_api_base_url:
+        return None
+    return CampusAIBackendClient(
+        settings.campusai_api_base_url,
+        timeout_seconds=settings.groq_timeout_seconds,
+    )
 
 
 def _manifest_entry_count() -> tuple[bool, int]:
@@ -64,9 +74,11 @@ def render_profile_sidebar() -> dict[str, str]:
     return profile
 
 
-def _build_demo_index(settings: Settings) -> tuple[bool, str]:
+def _build_demo_index(settings: Settings, backend_client: CampusAIBackendClient | None = None) -> tuple[bool, str]:
     """Build or refresh the packaged demo index without invoking Groq."""
     try:
+        if backend_client:
+            return backend_client.build_index(reset=True)
         result = index_local_documents(settings=settings, reset=True)
     except Exception as exc:
         return False, f"Failed to build index: {exc}"
@@ -76,7 +88,7 @@ def _build_demo_index(settings: Settings) -> tuple[bool, str]:
     return True, "Demo index built successfully."
 
 
-def render_document_sidebar(has_index: bool) -> bool:
+def render_document_sidebar(has_index: bool, backend_client: CampusAIBackendClient | None = None) -> bool:
     st.sidebar.header("Documents & indexing")
     settings = get_settings()
     uploaded_files = st.sidebar.file_uploader(
@@ -97,7 +109,7 @@ def render_document_sidebar(has_index: bool) -> bool:
     ):
         with st.sidebar:
             with st.spinner("Building demo index..."):
-                success, message = _build_demo_index(settings)
+                success, message = _build_demo_index(settings, backend_client)
         if success:
             st.sidebar.success(message)
             st.session_state.demo_index_refresh_token = time.time()
@@ -112,11 +124,26 @@ def render_document_sidebar(has_index: bool) -> bool:
     else:
         st.sidebar.caption("No files selected.")
 
+    if backend_client:
+        try:
+            return backend_client.status().has_index
+        except Exception:
+            return has_index
     return index_exists(settings)
 
 
-def render_status(settings: Settings, has_index: bool, manifest_exists: bool, manifest_count: int) -> None:
+def render_status(
+    settings: Settings,
+    has_index: bool,
+    manifest_exists: bool,
+    manifest_count: int,
+    backend_status: BackendStatus | None = None,
+) -> None:
     st.sidebar.header("System status")
+    if settings.campusai_api_base_url:
+        st.sidebar.info(f"Backend mode: `{settings.campusai_api_base_url}`")
+    else:
+        st.sidebar.caption("Backend mode: off (local Streamlit RAG).")
     if has_index:
         st.sidebar.success("Vector index: embedded chunks detected.")
     else:
@@ -129,11 +156,17 @@ def render_status(settings: Settings, has_index: bool, manifest_exists: bool, ma
         st.sidebar.caption(
             "No `data/processed/source_manifest.json` yet. Optional: `python -m campusai.fetch_public_dataset`."
         )
-    st.sidebar.caption(f"Groq model: `{settings.groq_model}`")
-    st.sidebar.caption(f"Embeddings: {settings.embedding_provider} / {settings.embedding_model}")
-    st.sidebar.caption(f"Vector store path: `{settings.vector_store_path}`")
-    st.sidebar.caption(f"Retrieval top_k: {settings.rag_top_k}")
-    if settings.has_groq_key:
+    groq_model = backend_status.groq_model if backend_status else settings.groq_model
+    embedding_provider = backend_status.embedding_provider if backend_status else settings.embedding_provider
+    embedding_model = backend_status.embedding_model if backend_status else settings.embedding_model
+    vector_store_path = backend_status.vector_store_path if backend_status else settings.vector_store_path
+    rag_top_k = backend_status.rag_top_k if backend_status else settings.rag_top_k
+    has_groq_key = backend_status.has_groq_key if backend_status else settings.has_groq_key
+    st.sidebar.caption(f"Groq model: `{groq_model}`")
+    st.sidebar.caption(f"Embeddings: {embedding_provider} / {embedding_model}")
+    st.sidebar.caption(f"Vector store path: `{vector_store_path}`")
+    st.sidebar.caption(f"Retrieval top_k: {rag_top_k}")
+    if has_groq_key:
         st.sidebar.success("Groq API key: configured (local or environment).")
     else:
         st.sidebar.warning("Groq API key: not configured — answers stay local/heuristic without LLM.")
@@ -148,6 +181,7 @@ def render_dataset_index_panel(
     has_index: bool,
     manifest_exists: bool,
     manifest_count: int,
+    backend_status: BackendStatus | None = None,
 ) -> None:
     st.subheader("Dataset & index status")
     m1, m2, m3 = st.columns(3)
@@ -166,7 +200,7 @@ def render_dataset_index_panel(
     with m3:
         st.metric(
             "Groq LLM",
-            "Key present" if settings.has_groq_key else "Missing key",
+            "Key present" if (backend_status.has_groq_key if backend_status else settings.has_groq_key) else "Missing key",
             help="Set `GROQ_API_KEY` in local `.env` or Streamlit Cloud Secrets. Never commit keys.",
         )
 
@@ -205,7 +239,12 @@ def render_citations(result) -> None:
                     st.caption(f"Distance: {citation.distance:.4f}")
 
 
-def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
+def render_chat(
+    student_profile: dict[str, str],
+    has_index: bool,
+    backend_client: CampusAIBackendClient | None = None,
+    backend_status: BackendStatus | None = None,
+) -> None:
     settings = get_settings()
     st.subheader("Question & answer")
     st.caption(
@@ -216,7 +255,8 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
         st.error(
             "**No index found.** Add PDFs, Markdown, or .txt files to `data/raw`, run `python -m campusai.index_documents`, then refresh this page."
         )
-    if not settings.has_groq_key:
+    has_groq_key = backend_status.has_groq_key if backend_status else settings.has_groq_key
+    if not has_groq_key:
         st.warning(
             "**No Groq key configured.** Retrieval can still run, but full LLM answers need `GROQ_API_KEY` "
             "(local `.env` or deployment secrets)."
@@ -258,8 +298,16 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
             else:
                 st.session_state.request_running = True
                 with st.spinner("Retrieving chunks and generating an answer…"):
-                    chain = RAGAnswerChain(settings=settings)
-                    result = chain.answer_question(question, student_profile)
+                    try:
+                        if backend_client:
+                            result = backend_client.ask_question(question, student_profile)
+                        else:
+                            chain = RAGAnswerChain(settings=settings)
+                            result = chain.answer_question(question, student_profile)
+                    except Exception as exc:
+                        st.session_state.request_running = False
+                        st.error(f"Backend request failed: {exc}")
+                        return
                     st.session_state.last_result = result
                     st.session_state.last_question = question
                     if result.used_live_api:
@@ -300,7 +348,17 @@ def render_chat(student_profile: dict[str, str], has_index: bool) -> None:
 def main() -> None:
     st.set_page_config(page_title="CampusAI Advisor", layout="wide", initial_sidebar_state="expanded")
     settings = get_settings()
-    has_index = index_exists(settings)
+    backend_client = _backend_client(settings)
+    backend_status = None
+    if backend_client:
+        try:
+            backend_status = backend_client.status()
+            has_index = backend_status.has_index
+        except Exception as exc:
+            has_index = False
+            st.error(f"FastAPI backend is configured but not reachable: {exc}")
+    else:
+        has_index = index_exists(settings)
     manifest_exists, manifest_count = _manifest_entry_count()
 
     st.title("CampusAI Advisor")
@@ -308,16 +366,21 @@ def main() -> None:
         "Portfolio MVP: ask study-path and catalog-style questions against **your indexed documents**, "
         "with **authority-labeled citations** and optional **Groq** generation."
     )
-    render_dataset_index_panel(settings, has_index, manifest_exists, manifest_count)
+    render_dataset_index_panel(settings, has_index, manifest_exists, manifest_count, backend_status)
     st.divider()
     render_help_safety_expander()
     st.divider()
 
     student_profile = render_profile_sidebar()
-    has_index = render_document_sidebar(has_index)
-    render_status(settings, has_index, manifest_exists, manifest_count)
+    has_index = render_document_sidebar(has_index, backend_client)
+    render_status(settings, has_index, manifest_exists, manifest_count, backend_status)
 
-    render_chat(student_profile=student_profile, has_index=has_index)
+    render_chat(
+        student_profile=student_profile,
+        has_index=has_index,
+        backend_client=backend_client,
+        backend_status=backend_status,
+    )
 
 
 if __name__ == "__main__":
