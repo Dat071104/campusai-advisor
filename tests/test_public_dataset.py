@@ -1,4 +1,5 @@
 import json
+from http.client import IncompleteRead
 from pathlib import Path
 
 from campusai.datasets.fireroad import FireRoadSourceAdapter
@@ -30,6 +31,31 @@ def test_fireroad_requirement_markdown_wraps_json():
     assert markdown.startswith("# Course 6 requirements")
     assert "```json" in markdown
     assert json.dumps({"title": "Course 6 requirements", "units": 12}, indent=2) in markdown
+
+
+def test_fireroad_download_handles_incomplete_read(monkeypatch, tmp_path):
+    class PartialResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            raise IncompleteRead(b"{", 100)
+
+    def fake_urlopen(request, *, timeout):
+        return PartialResponse()
+
+    monkeypatch.setattr("campusai.datasets.fireroad.urlopen", fake_urlopen)
+
+    adapter = FireRoadSourceAdapter(raw_root=tmp_path)
+    destination = tmp_path / "catalog.json"
+
+    result = adapter._download_json("https://example.test/catalog", destination, timeout=1)
+
+    assert result is None
+    assert not destination.exists()
 
 
 def test_local_rules_file_exists():

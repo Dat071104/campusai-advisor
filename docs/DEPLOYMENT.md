@@ -60,6 +60,12 @@ Same variable names; different storage. Never print secrets in logs or UI.
 
 For Streamlit Community Cloud, leave `CAMPUSAI_API_BASE_URL` unset unless you have deployed a separate backend. The normal Cloud path runs direct in-process RAG from Streamlit.
 
+## 6.1 Docker Compose secrets
+
+Docker Compose is for local multi-service testing and does not load the project `.env` file by default. The compose file maps `GROQ_API_KEY` only from the Docker-specific `CAMPUSAI_DOCKER_GROQ_API_KEY` variable, which should stay empty for normal no-key validation.
+
+If you intentionally test live Groq in Docker, set `CAMPUSAI_DOCKER_GROQ_API_KEY` only in your local shell or an ignored `docker.env` file. Do not commit `docker.env`, do not put real keys in `docker-compose.yml`, and do not paste `docker compose config` output while any real secret-bearing environment variable is set.
+
 ## 7. Recommended Python version
 
 - **Python 3.10 or newer** (see `pyproject.toml`: `requires-python = ">=3.10"`).

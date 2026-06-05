@@ -64,7 +64,7 @@ python -m campusai.fetch_public_dataset --timeout 20
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 ```
 
@@ -75,6 +75,8 @@ copy .env.example .env
 ```
 
 Edit `.env` and set `GROQ_API_KEY` when you are ready for live LLM answers. **Never commit `.env`.**
+
+Tests, indexing, retrieval debugging, and the initial Streamlit load do not need a real Groq key. Live Groq generation happens only after a user submits a question.
 
 ## 8. Environment variables
 
@@ -111,6 +113,8 @@ python -m uvicorn campusai.api.app:app --host 0.0.0.0 --port 8000
 
 Then set `CAMPUSAI_API_BASE_URL=http://localhost:8000` for Streamlit. See `docs/API.md`.
 
+Optional Docker Compose mode is safe by default and does not read the local `.env` file. To intentionally test live Groq from Docker, set `CAMPUSAI_DOCKER_GROQ_API_KEY` in your shell or a private local `docker.env` file and never commit it. Do not paste `docker compose config` output if any real secret-bearing environment variables are set.
+
 Verify (no Groq calls):
 
 ```bash
@@ -138,6 +142,7 @@ Scripted flows: **`DEMO_SCRIPT.md`**.
 - **Heuristic local rules** are labeled in citations; they are **not** official university policy.
 - **No invented policies**: if retrieval is empty, the chain returns a **no-evidence** style message.
 - **Single Groq key** by design — no backup key rotation (rate-limit discipline).
+- Docker Compose avoids loading local `.env` secrets by default; live Docker LLM testing must be explicit via `CAMPUSAI_DOCKER_GROQ_API_KEY`.
 - **Streamlit Community Cloud**: vector persistence may be **ephemeral**; first embedding model load can be **slow**; public HTTP sources may be **down** — see **`docs/DEPLOYMENT.md`**.
 - Cloud packaging uses the root `requirements.txt` so Streamlit Community Cloud installs with pip/uv instead of treating `pyproject.toml` as Poetry metadata.
 
@@ -151,6 +156,10 @@ Scripted flows: **`DEMO_SCRIPT.md`**.
 
 - Built **CampusAI Advisor**, a **RAG** academic advising MVP in Python with **local embeddings**, **ChromaDB** retrieval, **authority-aware citations**, **Groq** generation behind manual submit, and a **Streamlit** demo suitable for portfolio and interview walkthroughs.
 - Implemented **public dataset staging** (FireRoad / Berkeley references), **CLI indexing**, and **operational safeguards** (timeouts, spacing, retries) without committing secrets.
+
+## 14. License
+
+MIT License. See `LICENSE`.
 
 ---
 

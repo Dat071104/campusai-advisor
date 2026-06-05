@@ -1,8 +1,10 @@
 .env
 .env.*
 !.env.example
+docker.env
 __pycache__/
 .venv/
+.venv_verify/
 node_modules/
 .next/
 dist/
@@ -11,3 +13,9 @@ build/
 data/vector_db/
 data/uploads/
 .zone_context.md
+ai-agent-workspace-pack/
+*_audit*.log
+*.log
+debug_*
+tmp_*
+scratch/

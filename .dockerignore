@@ -1,0 +1,15 @@
+.git
+.venv
+.venv_verify
+__pycache__
+.pytest_cache
+data/vector_db
+.env
+docker.env
+.streamlit/secrets.toml
+dist
+build
+*.egg-info
+*_audit*.log
+*.log
+ai-agent-workspace-pack

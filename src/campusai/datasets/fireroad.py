@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from http.client import IncompleteRead
 from pathlib import Path
 from typing import Any
 from urllib.error import URLError
@@ -94,7 +95,7 @@ class FireRoadSourceAdapter:
             request = Request(url, headers={"User-Agent": "CampusAI/1.0"})
             with urlopen(request, timeout=timeout) as response:
                 payload = response.read().decode("utf-8")
-        except (URLError, TimeoutError, OSError) as exc:
+        except (IncompleteRead, URLError, TimeoutError, OSError) as exc:
             print(f"Fetch failed for {url}: {exc}", flush=True)
             return None
 

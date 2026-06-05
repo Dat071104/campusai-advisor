@@ -95,6 +95,70 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-06-05 17:30 - Repo hygiene / Secret-safe Docker and public fetch hardening
+
+### Context
+Batch 1-3 from the public-repo audit: harden Docker Compose so it does not expand local `.env` Groq keys, handle MIT FireRoad partial HTTP reads gracefully, add a public license, and clean local audit-log clutter. Real Groq keys had appeared in previous audit output, so they must be revoked/rotated outside this repo.
+
+### Files touched
+- .gitignore
+- .dockerignore
+- Dockerfile
+- docker-compose.yml
+- docker.env.example
+- LICENSE
+- README.md
+- docs/DEPLOYMENT.md
+- src/campusai/datasets/fireroad.py
+- tests/test_public_dataset.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+git status --short
+git branch --show-current
+git remote -v
+git log --oneline -5
+python --version
+Test-Path .\.env
+git check-ignore -v .env
+git ls-files .env
+python -m compileall src tests
+python -m pytest
+python -m pytest tests -q
+python -m campusai.fetch_public_dataset --timeout 20
+```
+
+### Result
+Baseline compile/test passed before editing. Docker Compose no longer uses `env_file: .env`; Docker live LLM mode is explicit through `CAMPUSAI_DOCKER_GROQ_API_KEY`, empty by default. FireRoad JSON download now catches `http.client.IncompleteRead` and returns a graceful per-request failure instead of crashing. MIT license was added. Local audit logs were removed and ignored.
+
+### Error messages
+Previous audit evidence showed `docker compose config` expanded local `.env` values. Do not paste compose config output when real secret-bearing environment variables are set.
+
+### Root cause
+Compose `env_file: .env` caused local app secrets to be included in resolved Compose config output. FireRoad downloads handled URL/timeouts/OS errors but not partial HTTP reads.
+
+### Fix applied
+Mapped Docker `GROQ_API_KEY` from a Docker-specific variable with an empty default, added Docker secret-safety documentation, added ignore patterns for local agent workspace and audit logs, made settings honor `PYTHON_DOTENV_DISABLED`, caught `IncompleteRead`, and added regression tests.
+
+### Verification
+Passed before commit:
+- `python -m compileall src tests`
+- `python -m pytest`: 63 passed.
+- `python -m campusai.fetch_public_dataset --timeout 20`: completed without traceback.
+- `python -m campusai.index_documents --reset`: indexed 39 chunks.
+- `python -m campusai.debug_retrieval "What should I learn before Machine Learning?"`: rank 1 `campusai_local_advisor_rules.md`.
+- Streamlit HTTP smoke for `src/campusai/app.py` and `streamlit_app.py`: HTTP 200.
+- FastAPI smoke `/health`, `/docs`, `/status`: passed; `has_groq_key=False` with `PYTHON_DOTENV_DISABLED=1`.
+- Docker Compose safe config scan: no `gsk_` or `sk-` secret patterns; `GROQ_API_KEY` appears only as an empty variable name.
+- Docker daemon unavailable, so Docker build/up was blocked rather than failed.
+
+### Next step
+Commit and push the explicit Batch 1-3 files if final staged diff and secret scan stay clean.
+
+### Do not repeat
+Do not run or paste resolved Compose config while local secrets are present. Do not read or print `.env`; verify only ignore/tracked status.
+
 ## 2026-05-16 15:40 - V2.3 fix / Restore optional FastAPI backend boundary
 
 ### Context

@@ -14,6 +14,11 @@ def _env(name: str, default: str) -> str:
     return value if value else default
 
 
+def _dotenv_disabled() -> bool:
+    value = os.getenv("PYTHON_DOTENV_DISABLED", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class Settings:
     """Environment-backed settings with safe MVP defaults."""
@@ -46,7 +51,8 @@ class Settings:
 def get_settings() -> Settings:
     """Load settings from environment variables and optional local .env."""
 
-    load_dotenv()
+    if not _dotenv_disabled():
+        load_dotenv()
 
     return Settings(
         groq_api_key=os.getenv("GROQ_API_KEY"),
