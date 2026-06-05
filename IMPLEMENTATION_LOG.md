@@ -968,3 +968,52 @@ READY_FOR_AUDIT: optional follow-up is a narrower content cleanup for the remain
 
 ### Do not repeat
 When using Zone Brain on Windows, set `PYTHONIOENCODING=utf-8` first if the scanner prints emoji; otherwise the dependency scan can fail before producing useful context.
+
+---
+
+## 2026-05-16 14:31 - Phase 5C / API endpoint test-fix for monkeypatched dependencies
+
+### Context
+`tests/test_api_app.py` had two failing tests: the debug retrieval endpoint returned an empty `results` list, and the ask endpoint returned empty `citations`. The tests monkeypatch module-level factories `get_retriever` and `get_answer_chain` with simple dummy implementations.
+
+### Files touched
+- src/campusai/api/app.py
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+python scripts/scan_deps.py --root . --seed "api_app,answer_chain,retriever,debug_retrieval,fastapi" --hops 2 --output context
+python -m pytest tests/test_api_app.py -q
+python -m compileall src tests
+python -m pytest
+git status --short
+```
+
+### Result
+The FastAPI endpoints now honor monkeypatched test factories and the full test suite passes.
+
+### Error messages
+- `IndexError: list index out of range` in `test_debug_retrieval_endpoint`
+- `assert []` in `test_ask_endpoint_without_groq`
+- After the first patch, the tests surfaced a more specific compatibility error:
+  `TypeError: <lambda>() takes 0 positional arguments but 1 was given`
+
+### Root cause
+FastAPI had captured the original dependency callables at route-definition time via `Depends(get_retriever)` and `Depends(get_answer_chain)`. Monkeypatching the module attributes in tests did not replace those already-bound dependency callables, so the routes kept using the real production services instead of the dummy test doubles. After adding runtime indirection, the wrappers still assumed production-style `factory(settings)` signatures, while the tests used zero-argument lambdas.
+
+### Fix applied
+Added runtime resolver wrappers in `src/campusai/api/app.py`:
+- `_resolve_settings()` to indirect settings lookup at request time
+- `_resolve_retriever()` and `_resolve_answer_chain()` to call the current module-level factories at request time
+- `_call_factory()` to support both production factories that accept `settings` and zero-argument monkeypatched test doubles
+
+### Verification
+- `python -m pytest tests/test_api_app.py -q`: `4 passed in 0.61s`
+- `python -m compileall src tests`: passed
+- `python -m pytest`: `62 passed in 7.76s`
+
+### Next step
+Continue the current API workstream or run an audit on the new FastAPI module and docs if that branch is about to be merged.
+
+### Do not repeat
+When tests monkeypatch FastAPI dependency factories, avoid binding route dependencies directly to the production factory if the test strategy expects module-level monkeypatching to take effect.
