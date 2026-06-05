@@ -95,6 +95,65 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-06-05 22:35 - Verify / Docker pre-push gate recovery
+
+### Context
+Reran the previously blocked Docker pre-push gate on local `main` after Docker Desktop Linux engine became available. The gate was no-key/mock-safe with `GROQ_API_KEY`, `CAMPUSAI_DOCKER_GROQ_API_KEY`, and dotenv disabled.
+
+### Files touched
+- Dockerfile
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+git status --short
+git branch --show-current
+git log --oneline -10
+git log --oneline origin/main..HEAD
+git diff --stat origin/main..HEAD
+git fetch origin
+git rev-list --left-right --count origin/main...HEAD
+docker version
+docker compose down --remove-orphans
+docker compose build
+docker compose up -d
+docker compose ps
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod http://localhost:8000/status
+Invoke-WebRequest http://localhost:8501 -UseBasicParsing
+docker compose down --remove-orphans
+```
+
+### Result
+Docker Desktop Linux engine was available. Initial Docker build failed because editable install ran before required project metadata/source files were copied into the image. After the minimal Dockerfile copy-order fix, Docker build, compose up, FastAPI smoke, and Streamlit smoke passed.
+
+### Error messages
+```text
+ERROR: file:///app (from -r requirements.txt (line 1)) does not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml' found.
+error: error in 'egg_base' option: 'src' does not exist or is not a directory
+```
+
+### Root cause
+`requirements.txt` starts with `-e .`, so Docker's `pip install -r requirements.txt` needs `pyproject.toml`, `README.md`, and `src/` present before the install step. The Dockerfile copied some of those files only after dependency installation.
+
+### Fix applied
+Moved `COPY pyproject.toml`, `COPY README.md`, and `COPY src ./src` before the pip install step in `Dockerfile`.
+
+### Verification
+- `docker compose build`: passed.
+- `docker compose up -d`: passed.
+- `docker compose ps`: `fastapi-backend` and `streamlit-ui` both `Up`.
+- `GET http://localhost:8000/health`: `{"status":"ok"}`.
+- `GET http://localhost:8000/status`: `status=ok`, `has_groq_key=false`, `has_index=false`.
+- `GET http://localhost:8501`: HTTP 200.
+- `docker compose down --remove-orphans`: completed.
+
+### Next step
+Commit the Dockerfile/log fix, fetch `origin/main` again, verify no remote divergence, then push `main` if git hygiene remains clean.
+
+### Do not repeat
+When Docker installs from `requirements.txt` with `-e .`, copy project metadata and package source before running pip.
+
 ## 2026-06-05 17:30 - Repo hygiene / Secret-safe Docker and public fetch hardening
 
 ### Context

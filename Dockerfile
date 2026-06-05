@@ -11,13 +11,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./requirements.txt
+COPY pyproject.toml ./pyproject.toml
+COPY README.md ./README.md
+COPY src ./src
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt
 
-COPY pyproject.toml ./pyproject.toml
-COPY README.md ./README.md
 COPY docs ./docs
-COPY src ./src
 COPY tests ./tests
 COPY streamlit_app.py ./streamlit_app.py
 
