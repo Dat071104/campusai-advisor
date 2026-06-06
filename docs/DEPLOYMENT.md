@@ -78,7 +78,7 @@ From a checkout with network access:
 python -m campusai.fetch_public_dataset --timeout 20
 ```
 
-Use `--skip-network` for offline-only local manifest refresh. Output includes `data/processed/source_manifest.json` and raw paths under `data/raw/`.
+Use `--skip-network` for offline-only local manifest refresh. Output includes generated, gitignored public-source artifacts under `data/processed/source_manifest.json`, `data/raw/api/mit_fireroad/`, and `data/raw/documents/berkeley/`.
 
 ## 9. Index documents before or after deploy
 

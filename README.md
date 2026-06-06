@@ -13,7 +13,7 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 - Streamlit UI with **student profile** context, **dataset/index status**, and **citation cards** (source, page, authority; chunk id in a collapsed technical section).
 - Optional **FastAPI backend mode** for local multi-service runs; set `CAMPUSAI_API_BASE_URL` so Streamlit calls the backend instead of direct in-process RAG.
 - **CLI indexing** of **PDF**, **Markdown (`.md`)**, and **plain text (`.txt`)** files discovered recursively under `data/raw/` into a persistent local vector store (gitignored).
-- **Public dataset adapter** (MIT FireRoad, Berkeley CS guide references, local heuristic rules) via `python -m campusai.fetch_public_dataset` and `data/processed/source_manifest.json`.
+- **Public dataset adapter** (MIT FireRoad, Berkeley CS guide references, local heuristic rules) via `python -m campusai.fetch_public_dataset`; external public snapshots and `data/processed/source_manifest.json` are generated locally and gitignored.
 - **Groq** OpenAI-compatible client with **timeouts**, **retries**, **max tokens**, and **minimum spacing** between live requests.
 - Clear **empty states**: no index, no API key, no retrieval hits, rate limits, and timeouts.
 
@@ -34,7 +34,7 @@ University students juggle **course planning**, **prerequisites**, and **policy-
 ## 5. Architecture
 
 ```text
-data/raw (PDFs + Markdown + .txt + staged public files)
+data/raw (tracked TDTU/local samples + optional generated public files)
     -> chunking + page metadata
     -> FastEmbed embeddings
     -> ChromaDB (data/vector_db)
@@ -45,7 +45,7 @@ data/raw (PDFs + Markdown + .txt + staged public files)
     -> Streamlit answer + citation UI
 ```
 
-Optional manifest path: `data/processed/source_manifest.json` (public sources + heuristics metadata).
+Optional generated manifest path: `data/processed/source_manifest.json` (public sources + heuristics metadata; gitignored).
 
 ## 6. Dataset sources
 
@@ -59,6 +59,8 @@ Run:
 ```bash
 python -m campusai.fetch_public_dataset --timeout 20
 ```
+
+This command writes local generated artifacts under `data/raw/api/mit_fireroad/`, `data/raw/documents/berkeley/`, and `data/processed/source_manifest.json`. Those external snapshots are intentionally gitignored because their live upstream content can change between runs. The stable curated TDTU and local advisor Markdown files remain tracked.
 
 ## 7. Local setup
 

@@ -95,6 +95,89 @@ After debugging, update this file. Otherwise the next session will rediscover th
 
 ## Session entries
 
+## 2026-06-06 11:00 - Fix / Final public hygiene patch
+
+### Context
+Applied the final public hygiene patch after clean-clone audit returned `PASS WITH RISKS`. The goal was to remove machine-local path leakage, ignore Streamlit secrets, stop volatile public fetch artifacts from remaining tracked/dirty after `fetch_public_dataset`, reduce secret-scan false positives, and verify API method docs.
+
+### Files touched
+- .cursor/rules/Path.mdc
+- .dockerignore
+- .gitignore
+- README.md
+- DEMO_SCRIPT.md
+- docs/DEPLOYMENT.md
+- src/campusai/app.py
+- tests/test_answer_chain.py
+- data/processed/source_manifest.json
+- data/raw/api/mit_fireroad/*
+- data/raw/documents/berkeley/*
+- IMPLEMENTATION_LOG.md
+
+### Commands run
+```bash
+git status --short
+git pull --ff-only origin main
+python -m compileall src tests
+python -m pytest
+git ls-files data/raw/api data/raw/documents/berkeley data/processed
+rg -n "courses_all_full|berkeley_cs_guide|data/raw/api|data/raw/documents/berkeley|source_manifest" src tests README.md docs PROJECT_CONTEXT.md DEMO_SCRIPT.md
+git rm --cached -r data/raw/api/mit_fireroad data/raw/documents/berkeley data/processed/source_manifest.json
+python -m campusai.fetch_public_dataset --timeout 20
+python -m campusai.index_documents --reset
+python -m campusai.debug_retrieval "What is TDTU Software Engineering?"
+python -m campusai.debug_retrieval "What are TDTU graduation requirements?"
+python -m campusai.debug_retrieval "What should a Backend + AI student learn?"
+python -m uvicorn campusai.api.app:app --host 127.0.0.1 --port 8000
+rg -n "gsk_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]|GROQ_API_KEY\s*=\s*gsk_|password\s*=|secret\s*=|token\s*=" .
+rg -n "D:\\Project cua Dat|C:\\Users|/Users/|S cripts|a ctivate|Ãƒ|Ã‚|Ã¡Âº|Ã¡Â»" README.md docs .cursor PROJECT_CONTEXT.md PROJECT_RULES.md DEVELOPMENT_WORKFLOW.md DEMO_SCRIPT.md src tests
+docker compose config
+docker build -t campusai-advisor:final-hygiene .
+```
+
+### Result
+The local path leak was removed from `.cursor/rules/Path.mdc`. `.streamlit/secrets.toml` is explicitly ignored. MIT FireRoad/Berkeley public fetch snapshots and the generated manifest were removed from tracking and are now ignored, while curated TDTU/local sample documents remain tracked. Documentation now states that external public snapshots are local generated artifacts. The fake Groq-like test key and Streamlit session-state key were renamed to reduce secret-scan noise. API docs were already correct for POST `/status/build-index` and POST `/debug/retrieval`.
+
+### Error messages
+Docker smoke was blocked because Docker Desktop Linux engine was unavailable:
+
+```text
+failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine
+```
+
+### Root cause
+Clean-clone audit showed volatile external public snapshots were committed. Re-running `fetch_public_dataset` rewrote live third-party content and left tracked files dirty. The Cursor path rule also embedded a machine-specific workspace path.
+
+### Fix applied
+Changed the public data policy to keep stable curated sample/TDTU/local docs tracked while treating external MIT FireRoad/Berkeley snapshots and `data/processed/source_manifest.json` as generated, ignored local artifacts. Removed tracked generated artifacts with `git rm --cached`, added matching `.gitignore`/`.dockerignore` entries, removed the absolute local path from `.cursor/rules/Path.mdc`, and updated docs.
+
+### Verification
+- Baseline `python -m compileall src tests`: passed.
+- Baseline `python -m pytest`: 63 passed.
+- Post-patch `python -m compileall src tests`: passed.
+- Post-patch `python -m pytest`: 63 passed.
+- `python -m campusai.fetch_public_dataset --timeout 20`: completed without traceback.
+- `python -m campusai.index_documents --reset`: indexed 39 chunks.
+- Retrieval debug:
+  - `What is TDTU Software Engineering?`: rank 1 `tdtu_software_engineering_curriculum.md`.
+  - `What are TDTU graduation requirements?`: rank 1 `tdtu_academic_regulations_graduation.md`.
+  - `What should a Backend + AI student learn?`: rank 1 `local_backend_ai_advisor_heuristics.md`.
+- FastAPI smoke:
+  - `GET /health`: `status=ok`.
+  - `GET /status`: `has_groq_key=false`.
+  - `POST /status/build-index`: indexed 39 chunks.
+  - `POST /debug/retrieval`: returned chunks.
+  - `POST /ask`: `used_live_api=false`, `missing_api_key=true`.
+- Secret scan: no matches.
+- Local path/mojibake scan: no matches for the requested patterns.
+- Docker compose config scan showed `GROQ_API_KEY` empty, but Docker build/up/health was blocked by unavailable Docker daemon.
+
+### Next step
+Commit and push the hygiene patch if staged diff remains limited to the intended files and `origin/main` has not diverged. After push, run a final clean-clone mini-audit.
+
+### Do not repeat
+Do not commit live third-party fetched HTML/PDF/API snapshots when the fetch command rewrites them. Treat those as generated public-source artifacts unless intentionally vendoring a stable fixture.
+
 ## 2026-06-05 22:35 - Verify / Docker pre-push gate recovery
 
 ### Context

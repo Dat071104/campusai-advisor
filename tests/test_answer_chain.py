@@ -121,7 +121,7 @@ def test_answer_chain_prompt_includes_retrieval_note_when_study_path_and_no_loca
 
 
 def test_secret_redaction_does_not_reveal_full_key():
-    redacted = redact_secret("gsk_abcdefghijklmnopqrstuvwxyz")
+    redacted = redact_secret("fake_key_abcdefghijklmnopqrstuvwxyz")
 
     assert "abcdefghijklmnopqrstuvwxyz" not in redacted
     assert "REDACTED" in redacted

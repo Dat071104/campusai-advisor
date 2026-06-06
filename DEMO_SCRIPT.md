@@ -5,7 +5,7 @@ Use this script for portfolio walkthroughs, screen recordings, and interviews. T
 ## Before you demo
 
 1. **Local `.env`**: Copy `.env.example` to `.env` and set `GROQ_API_KEY` only on your machine. Never commit `.env`, paste keys into chat, or show keys in screenshots.
-2. **Index**: Stage PDFs and local advisor Markdown under `data/raw` (for example `data/raw/documents/local/campusai_local_advisor_rules.md`), run `python -m campusai.index_documents`. If you previously indexed **PDFs only** and need Markdown in the same Chroma collection, run `python -m campusai.index_documents --reset` once, then index again. Optional: `python -m campusai.fetch_public_dataset` to refresh public dataset files and `data/processed/source_manifest.json`, then index again.
+2. **Index**: Stage PDFs and local advisor Markdown under `data/raw` (for example `data/raw/documents/local/campusai_local_advisor_rules.md`), run `python -m campusai.index_documents`. If you previously indexed **PDFs only** and need Markdown in the same Chroma collection, run `python -m campusai.index_documents --reset` once, then index again. Optional: `python -m campusai.fetch_public_dataset` to generate local public dataset artifacts and `data/processed/source_manifest.json`, then index again.
 3. **Retrieval check (no Groq)**: Run `python -m campusai.debug_retrieval "What should I learn before Machine Learning?"` and confirm `campusai_local_advisor_rules.md` appears near the top.
 4. **Rate limits**: Groq free tier is conservative. Wait a few seconds between live questions; if rate limited, wait and retry later.
 

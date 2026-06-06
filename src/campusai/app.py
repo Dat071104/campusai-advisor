@@ -112,7 +112,7 @@ def render_document_sidebar(has_index: bool, backend_client: CampusAIBackendClie
                 success, message = _build_demo_index(settings, backend_client)
         if success:
             st.sidebar.success(message)
-            st.session_state.demo_index_refresh_token = time.time()
+            st.session_state.demo_index_refresh_marker = time.time()
             st.rerun()
         st.sidebar.error(message)
 

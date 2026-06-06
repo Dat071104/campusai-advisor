@@ -2,9 +2,9 @@
 alwaysApply: true
 ---
 
-Project Root: D:\Project cua Dat\Rag_School
+Project Root: repository root
 
-You MUST only read, inspect, modify, and reference files inside the Project Root above.
+You MUST only read, inspect, modify, and reference files inside the current Git repository root.
 
 Allowed project-control files:
 - .cursor/rules/*.mdc
